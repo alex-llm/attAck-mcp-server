@@ -100,11 +100,11 @@ def format_technique_data(tech):
     
     # 添加子技术信息
     # Use the technique's STIX ID to get subtechniques
-    subtechniques = attack_data.get_subtechniques_by_technique(tech.id)
+    subtechniques = attack_data.get_subtechniques_of_technique(tech.id)
     if subtechniques:
         data["subtechniques"] = [{
-            "id": st.external_references[0].external_id,
-            "name": st.name
+            "id": st["object"].external_references[0].external_id,
+            "name": st["object"].name
         } for st in subtechniques]
     
     return data

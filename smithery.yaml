@@ -1,6 +1,15 @@
+# Smithery.ai configuration
 startCommand:
   type: stdio
-  command: python main.py
+  configSchema: {}
+  commandFunction: |-
+    (config) => ({
+      command: "python",
+      args: [
+        "main.py"
+      ],
+      env: {}
+    })
 tools:
   - query_technique
   - list_tactics

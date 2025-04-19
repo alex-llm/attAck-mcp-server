@@ -117,7 +117,7 @@ app = mcp.sse_app()
 if __name__ == "__main__":
     # 只需切换下方注释即可选择 stdio 或 http 模式
     # --- MCP stdio 模式（Smithery/本地集成推荐）---
-    mcp.serve()
+    mcp.run()
     # --- HTTP/SSE 模式（开发/调试/远程部署推荐）---
     # import uvicorn
     # uvicorn.run(

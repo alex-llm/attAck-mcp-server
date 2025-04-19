@@ -117,11 +117,11 @@ async def query_mitigations(technique_id: str):
         return {"error": f"未找到技术ID {technique_id}"}
     
     tech = TECH_CACHE[technique_id.upper()]
-    mitigations = attack_data.get_mitigations_by_technique(tech.id)
+    mitigations = attack_data.get_mitigations_mitigating_technique(tech.id)
     return [{
-        "id": m.external_references[0].external_id,
-        "name": m.name,
-        "description": m.description
+        "id": m["object"].external_references[0].external_id,
+        "name": m["object"].name,
+        "description": m["object"].description
     } for m in mitigations]
 
 @mcp.tool(name="query_detections") 
@@ -132,10 +132,10 @@ async def query_detections(technique_id: str):
         return {"error": f"未找到技术ID {technique_id}"}
     
     tech = TECH_CACHE[technique_id.upper()]
-    detections = attack_data.get_detections_by_technique(tech.id)
+    detections = attack_data.get_datacomponents_detecting_technique(tech.id)
     return [{
-        "source": d.source_name,
-        "description": d.description
+        "source": d["object"].name,
+        "description": d["object"].description
     } for d in detections]
 
 # 附加功能：战术列表查询

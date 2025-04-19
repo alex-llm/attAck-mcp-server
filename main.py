@@ -7,6 +7,7 @@ import json
 from typing import Optional
 import asyncio
 import logging
+import threading
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -20,15 +21,20 @@ mcp = FastMCP(
     version="2.1"
 )
 
-# 预加载ATT&CK数据集
-try:
-    logger.info("正在加载ATT&CK数据集...")
-    attack_data = MitreAttackData("enterprise-attack.json")
-    TECH_CACHE = {t.external_references[0].external_id: t for t in attack_data.get_techniques()}
-    logger.info(f"成功加载 {len(TECH_CACHE)} 个技术条目")
-except Exception as e:
-    logger.error(f"ATT&CK数据加载失败: {str(e)}")
-    raise RuntimeError(f"ATT&CK数据加载失败: {str(e)}")
+attack_data = None
+TECH_CACHE = None
+attack_data_lock = threading.Lock()
+
+def ensure_attack_data_loaded():
+    global attack_data, TECH_CACHE
+    if attack_data is None or TECH_CACHE is None:
+        with attack_data_lock:
+            if attack_data is None or TECH_CACHE is None:
+                from mitreattack.stix20 import MitreAttackData
+                logger.info("首次加载ATT&CK数据集，可能需要几秒...")
+                attack_data = MitreAttackData("enterprise-attack.json")
+                TECH_CACHE = {t.external_references[0].external_id: t for t in attack_data.get_techniques()}
+                logger.info(f"成功加载 {len(TECH_CACHE)} 个技术条目")
 
 # 核心查询工具
 @mcp.tool(
@@ -40,6 +46,7 @@ async def query_attack_technique(
     tech_name: Optional[str] = None
 ):
     """支持精确ID查询和名称模糊搜索的ATT&CK技术查询"""
+    ensure_attack_data_loaded()
     logger.info(f"收到查询请求 - ID: {technique_id}, 名称: {tech_name}")
     try:
         if technique_id:
@@ -94,6 +101,7 @@ def format_technique_data(tech):
 @mcp.tool(name="list_tactics")
 async def get_all_tactics():
     """获取所有ATT&CK战术分类"""
+    ensure_attack_data_loaded()
     logger.info("正在获取所有战术列表")
     tactics = [{
         "id": t.external_references[0].external_id,

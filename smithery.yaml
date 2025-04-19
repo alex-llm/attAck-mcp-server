@@ -1,0 +1,5 @@
+entrypoint: python main.py
+transport: stdio
+tools:
+  - query_technique
+  - list_tactics

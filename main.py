@@ -8,6 +8,7 @@ from typing import Optional
 import asyncio
 import logging
 import threading
+import os
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -114,11 +115,14 @@ async def get_all_tactics():
 app = mcp.sse_app()
 
 if __name__ == "__main__":
-    logger.info("开始运行服务器（开发/调试模式）...")
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=8001,
-        log_level="info"
-    )
+    # 只需切换下方注释即可选择 stdio 或 http 模式
+    # --- MCP stdio 模式（Smithery/本地集成推荐）---
+    mcp.serve()
+    # --- HTTP/SSE 模式（开发/调试/远程部署推荐）---
+    # import uvicorn
+    # uvicorn.run(
+    #     "main:app",
+    #     host="127.0.0.1",
+    #     port=8001,
+    #     log_level="info"
+    # )

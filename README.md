@@ -32,11 +32,27 @@ To use this MCP server, you need to have an MCP client configured to connect to 
 
 ## MCP Client 配置说明
 
-假设您的 MCP 客户端支持自定义服务接入，可以按如下方式配置：
+### 1. 本地 stdio 方式（推荐 Smithery/本地集成）
 
-- **服务地址**：
-  - 本地开发环境：`http://127.0.0.1:8001`
-  - Docker 部署：`http://<your-server-ip>:8001`
+- 直接运行：
+  ```bash
+  python main.py
+  ```
+- main.py 默认以 stdio (mcp.serve) 模式启动，适用于 Smithery、Cursor 等支持本地 MCP stdio 的客户端。
+- MCP 客户端配置服务类型为"local/stdio"，无需指定端口。
+- 适用场景：Smithery 自动化、CI/CD、本地 AI Agent 集成。
+
+### 2. HTTP/SSE 方式（远程/开发/调试）
+
+- 取消 main.py 末尾的 mcp.serve() 注释，启用 uvicorn 相关代码。
+- 启动服务：
+  ```bash
+  python main.py
+  # 或
+  uvicorn main:app --host 0.0.0.0 --port 8001
+  ```
+- MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
+
 - **工具名称**：`query_technique`、`list_tactics`
 - **参数示例**：
   - 按ID查询技术：

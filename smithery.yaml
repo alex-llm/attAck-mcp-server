@@ -1,5 +1,6 @@
-entrypoint: python main.py
-transport: stdio
+startCommand:
+  type: stdio
+  command: python main.py
 tools:
   - query_technique
   - list_tactics

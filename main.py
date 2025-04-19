@@ -103,14 +103,14 @@ async def get_all_tactics():
     logger.info(f"返回 {len(tactics)} 个战术")
     return tactics
 
+app = mcp.sse_app()
+
 if __name__ == "__main__":
-    logger.info("开始运行服务器...")
-    # 启动SSE服务
+    logger.info("开始运行服务器（开发/调试模式）...")
+    import uvicorn
     uvicorn.run(
-        mcp.sse_app(),
+        "main:app",
         host="127.0.0.1",
         port=8001,
-        ssl_keyfile=None,
-        ssl_certfile=None,
         log_level="info"
     )

@@ -23,6 +23,24 @@ The server provides the following tools:
           "tech_name": "phishing"
         }
         ```
+*   **query\_mitigations:** 查询技术的缓解措施
+    *   **Arguments:**
+        *   `technique_id` (string, required): 要查询的技术ID
+    *   **Example:**
+        ```json
+        {
+          "technique_id": "T1059.001"
+        }
+        ```
+*   **query\_detections:** 查询技术的检测方法
+    *   **Arguments:**
+        *   `technique_id` (string, required): 要查询的技术ID
+    *   **Example:**
+        ```json
+        {
+          "technique_id": "T1059.001"
+        }
+        ```
 *   **list\_tactics:** This tool allows you to retrieve a list of all ATT&CK tactics.
     *   **Arguments:** None
 
@@ -53,7 +71,7 @@ To use this MCP server, you need to have an MCP client configured to connect to 
   ```
 - MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
 
-- **工具名称**：`query_technique`、`list_tactics`
+- **工具名称**：`query_technique`、`query_mitigations`、`query_detections`、`list_tactics`
 - **参数示例**：
   - 按ID查询技术：
     ```json
@@ -65,6 +83,18 @@ To use this MCP server, you need to have an MCP client configured to connect to 
     ```json
     {
       "tech_name": "phishing"
+    }
+    ```
+  - 查询技术缓解措施：
+    ```json
+    {
+      "technique_id": "T1059.001"
+    }
+    ```
+  - 查询技术检测方法：
+    ```json
+    {
+      "technique_id": "T1059.001"
     }
     ```
   - 查询战术列表：
@@ -120,6 +150,8 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
 
 ## API 说明
 - /query_technique 通过ID或名称查询攻击技术详情（支持名称模糊搜索）
+- /query_mitigations 查询指定技术的缓解措施
+- /query_detections 查询指定技术的检测方法  
 - /list_tactics 获取所有ATT&CK战术分类
 
 ---

@@ -84,7 +84,7 @@ async def query_attack_technique(
 
 def format_technique_data(tech):
     """标准化技术数据格式"""
-    return {
+    data = {
         "id": tech.external_references[0].external_id,
         "name": tech.name,
         "description": tech.description,
@@ -97,6 +97,45 @@ def format_technique_data(tech):
             } for ref in tech.external_references
         ]
     }
+    
+    # 添加子技术信息
+    subtechniques = attack_data.get_subtechniques_of(tech)
+    if subtechniques:
+        data["subtechniques"] = [{
+            "id": st.external_references[0].external_id,
+            "name": st.name
+        } for st in subtechniques]
+    
+    return data
+
+@mcp.tool(name="query_mitigations")
+async def query_mitigations(technique_id: str):
+    """查询技术的缓解措施"""
+    ensure_attack_data_loaded()
+    if technique_id.upper() not in TECH_CACHE:
+        return {"error": f"未找到技术ID {technique_id}"}
+    
+    tech = TECH_CACHE[technique_id.upper()]
+    mitigations = attack_data.get_mitigations_by_technique(tech.id)
+    return [{
+        "id": m.external_references[0].external_id,
+        "name": m.name,
+        "description": m.description
+    } for m in mitigations]
+
+@mcp.tool(name="query_detections") 
+async def query_detections(technique_id: str):
+    """查询技术的检测方法"""
+    ensure_attack_data_loaded()
+    if technique_id.upper() not in TECH_CACHE:
+        return {"error": f"未找到技术ID {technique_id}"}
+    
+    tech = TECH_CACHE[technique_id.upper()]
+    detections = attack_data.get_detections_by_technique(tech.id)
+    return [{
+        "source": d.source_name,
+        "description": d.description
+    } for d in detections]
 
 # 附加功能：战术列表查询
 @mcp.tool(name="list_tactics")

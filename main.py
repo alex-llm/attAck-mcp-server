@@ -40,13 +40,33 @@ def ensure_attack_data_loaded():
 # 核心查询工具
 @mcp.tool(
     name="query_technique",
-    description="通过ID或名称查询攻击技术详情"
+    description="通过技术ID精确查询或技术名称模糊搜索ATT&CK攻击技术的详细信息。ID查询返回单个技术的完整数据，名称搜索返回匹配技术列表的摘要。"
 )
 async def query_attack_technique(
     technique_id: Optional[str] = None, 
     tech_name: Optional[str] = None
 ):
-    """支持精确ID查询和名称模糊搜索的ATT&CK技术查询"""
+    """
+    根据提供的技术ID或技术名称查询ATT&CK攻击技术。
+
+    当提供 `technique_id` 时 (例如 "T1059.001")，执行精确匹配查询。
+    成功时返回该技术的详细信息，包括：ID, 名称, 描述, 适用平台, Kill Chain阶段, 相关参考资料, 以及子技术列表 (如果存在)。
+    如果ID无效或未找到，将返回一个包含错误信息的字典。
+
+    当提供 `tech_name` 时 (例如 "phishing")，执行模糊匹配搜索。
+    返回一个包含技术列表摘要的字典，其中每个条目包含技术的ID、名称和简短描述。
+    同时返回匹配结果的数量。
+
+    参数:
+        technique_id (Optional[str]): 要查询的ATT&CK技术ID。如果提供此参数，则优先使用ID进行精确查询。
+        tech_name (Optional[str]): 用于模糊搜索的ATT&CK技术名称中的关键词。如果未提供 `technique_id`，则使用此参数进行搜索。
+
+    返回:
+        dict: 
+            - 如果是ID查询且成功，返回包含技术完整详情的字典。
+            - 如果是名称搜索，返回一个格式为 {"results": [...], "count": N} 的字典，其中 "results" 是技术摘要列表，"count" 是结果数量。
+            - 如果参数无效 (例如两者都未提供) 或查询过程中发生内部错误，可能返回包含 "error" 键的字典或引发HTTPException。
+    """
     ensure_attack_data_loaded()
     logger.info(f"收到查询请求 - ID: {technique_id}, 名称: {tech_name}")
     try:
@@ -109,9 +129,21 @@ def format_technique_data(tech):
     
     return data
 
-@mcp.tool(name="query_mitigations")
+@mcp.tool(
+    name="query_mitigations",
+    description="根据ATT&CK技术ID查询相关的缓解措施列表。为每个缓解措施提供ID、名称和描述。"
+)
 async def query_mitigations(technique_id: str):
-    """查询技术的缓解措施"""
+    """
+    根据指定的ATT&CK技术ID查询并返回所有相关的缓解措施。
+
+    参数:
+        technique_id (str): 要查询缓解措施的ATT&CK技术ID (例如 "T1059.001")。ID必须精确匹配。
+
+    返回:
+        list: 一个包含缓解措施对象的列表。每个对象包含 "id", "name", 和 "description"。
+              如果技术ID无效或未找到，返回一个包含 "error" 键的字典，例如: {"error": "未找到技术ID TXXXX"}。
+    """
     ensure_attack_data_loaded()
     if technique_id.upper() not in TECH_CACHE:
         return {"error": f"未找到技术ID {technique_id}"}
@@ -124,9 +156,21 @@ async def query_mitigations(technique_id: str):
         "description": m["object"].description
     } for m in mitigations]
 
-@mcp.tool(name="query_detections") 
+@mcp.tool(
+    name="query_detections",
+    description="根据ATT&CK技术ID查询相关的检测方法或数据组件。为每个检测方法提供其来源(数据组件名称)和描述。"
+)
 async def query_detections(technique_id: str):
-    """查询技术的检测方法"""
+    """
+    根据指定的ATT&CK技术ID查询并返回所有相关的数据组件，这些组件可用于检测该技术的应用。
+
+    参数:
+        technique_id (str): 要查询检测方法的ATT&CK技术ID (例如 "T1059.001")。ID必须精确匹配。
+
+    返回:
+        list: 一个包含检测数据组件对象的列表。每个对象包含 "source" (数据组件名称) 和 "description"。
+              如果技术ID无效或未找到，返回一个包含 "error" 键的字典，例如: {"error": "未找到技术ID TXXXX"}。
+    """
     ensure_attack_data_loaded()
     if technique_id.upper() not in TECH_CACHE:
         return {"error": f"未找到技术ID {technique_id}"}
@@ -139,9 +183,20 @@ async def query_detections(technique_id: str):
     } for d in detections]
 
 # 附加功能：战术列表查询
-@mcp.tool(name="list_tactics")
+@mcp.tool(
+    name="list_tactics",
+    description="获取并列出MITRE ATT&CK框架中定义的所有战术。为每个战术提供ID、名称和描述。"
+)
 async def get_all_tactics():
-    """获取所有ATT&CK战术分类"""
+    """
+    获取并返回MITRE ATT&CK框架中定义的所有战术的列表。
+
+    参数:
+        无
+
+    返回:
+        list: 一个包含战术对象的列表。每个对象包含 "id", "name", 和 "description"。
+    """
     ensure_attack_data_loaded()
     logger.info("正在获取所有战术列表")
     tactics = [{

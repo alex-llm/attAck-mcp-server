@@ -1,159 +1,269 @@
-# attAck-mcp-server
+# ATT&CK MCP Server
 
-This project is an MCP (Model Context Protocol) server for querying ATT&CK (Adversarial Tactics, Techniques, and Common Knowledge) techniques and tactics. It provides a way to access and retrieve information about various attack techniques and tactics used by adversaries.
+This project is an MCP (Model Context Protocol) server designed to provide comprehensive query capabilities for the MITRE ATT&CK framework. It allows users to access detailed information about attack techniques, tactics, associated mitigations, and detection methods.
+
+## Features
+
+*   Loads MITRE ATT&CK data (from `enterprise-attack.json`).
+*   Provides tools to query techniques, mitigations, detections, and tactics.
+*   Supports both precise ID lookups and fuzzy name searches for techniques.
+*   Offers clear and structured JSON responses.
 
 ## Tools
 
-The server provides the following tools:
+The server exposes the following tools for interaction via an MCP client:
 
-*   **query\_technique:**  This tool allows you to query ATT&CK techniques by ID or name.
-    *   **Arguments:**
-        *   `technique_id` (string, optional): The ID of the technique to query.
-        *   `tech_name` (string, optional): The name (or partial name) of the technique to query. 支持名称模糊搜索。
-    *   **Example:**
-        - 按ID查询：
+### 1. `query_technique`
+
+**Description (from `main.py`):** 通过技术ID精确查询或技术名称模糊搜索ATT&CK攻击技术的详细信息。ID查询返回单个技术的完整数据，名称搜索返回匹配技术列表的摘要。
+(Query detailed information of ATT&CK attack techniques through precise query by technique ID or fuzzy search by technique name. ID query returns complete data for a single technique, name search returns a summary of the list of matching techniques.)
+
+**Arguments:**
+
+*   `technique_id` (string, optional): The exact ID of the technique to query (e.g., "T1059.001").
+*   `tech_name` (string, optional): A keyword or partial name for fuzzy searching techniques (e.g., "phishing"). 支持名称模糊搜索。
+
+**Behavior & Response:**
+
+*   **If `technique_id` is provided (Precise Query):**
+    *   Returns a dictionary containing full details of the specified technique, including ID, name, description, platforms, kill chain phases, references, and sub-techniques (if any).
+    *   **Example Request:**
         ```json
         {
           "technique_id": "T1059.001"
         }
         ```
-        - 按名称模糊搜索：
+    *   **Example Successful Response (Structure):**
+        ```json
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "description": "Adversaries may abuse PowerShell commands and scripts...",
+          "platforms": ["Windows"],
+          "kill_chain": ["execution"],
+          "references": [{"source": "Mitre ATT&CK", "url": "https://attack.mitre.org/techniques/T1059/001"}],
+          "subtechniques": [] // or list of sub-technique objects
+        }
+        ```
+    *   **Error Response (Invalid ID):**
+        ```json
+        {
+          "error": "未找到技术ID T1059.001" 
+        }
+        ```
+*   **If `tech_name` is provided (Fuzzy Search):**
+    *   Returns a dictionary containing a list of techniques that match the name, along with a count. Each item in the list provides a summary (ID, name, abridged description).
+    *   **Example Request:**
         ```json
         {
           "tech_name": "phishing"
         }
         ```
-*   **query\_mitigations:** 查询技术的缓解措施
-    *   **Arguments:**
-        *   `technique_id` (string, required): 要查询的技术ID
-    *   **Example:**
+    *   **Example Successful Response (Structure):**
         ```json
         {
-          "technique_id": "T1059.001"
+          "results": [
+            {
+              "id": "T1566",
+              "name": "Phishing",
+              "description": "Adversaries may send phishing messages to elicit sensitive information..."
+            },
+            {
+              "id": "T1598.003",
+              "name": "Phishing for Information: Spearphishing Link",
+              "description": "Adversaries may send spearphishing messages with a link..."
+            }
+          ],
+          "count": 2 
         }
         ```
-*   **query\_detections:** 查询技术的检测方法
-    *   **Arguments:**
-        *   `technique_id` (string, required): 要查询的技术ID
-    *   **Example:**
-        ```json
-        {
-          "technique_id": "T1059.001"
-        }
-        ```
-*   **list\_tactics:** This tool allows you to retrieve a list of all ATT&CK tactics.
-    *   **Arguments:** None
+*   **If neither `technique_id` nor `tech_name` is provided:**
+    *   Raises an `HTTPException` (typically resulting in a 500 error from the MCP server wrapper in `main.py` due to internal error handling catching the initial 400 error), with a detail message indicating that one parameter is required. Example: `{"detail":"查询失败: 400: 必须提供ID或名称参数"}`.
 
-## Usage
+### 2. `query_mitigations`
 
-To use this MCP server, you need to have an MCP client configured to connect to it. Once connected, you can use the provided tools to query ATT&CK techniques and tactics.
+**Description (from `main.py`):** 根据ATT&CK技术ID查询相关的缓解措施列表。为每个缓解措施提供ID、名称和描述。
+(Query the list of related mitigation measures based on ATT&CK technique ID. Provide ID, name, and description for each mitigation measure.)
 
-## MCP Client 配置说明
+**Arguments:**
 
-### 1. 本地 stdio 方式（推荐 Smithery/本地集成）
+*   `technique_id` (string, required): The exact ID of the technique for which to find mitigations (e.g., "T1078").
 
-- 直接运行：
-  ```bash
-  python main.py
-  ```
-- main.py 默认以 stdio (mcp.serve) 模式启动，适用于 Smithery、Cursor 等支持本地 MCP stdio 的客户端。
-- MCP 客户端配置服务类型为"local/stdio"，无需指定端口。
-- 适用场景：Smithery 自动化、CI/CD、本地 AI Agent 集成。
+**Behavior & Response:**
 
-### 2. HTTP/SSE 方式（远程/开发/调试）
+*   Returns a list of mitigation objects associated with the technique. Each object includes the mitigation's "id", "name", and "description".
+*   If the technique ID is invalid or not found, returns an error dictionary: `{"error": "未找到技术ID TXXXX"}`.
+*   **Example Request:**
+    ```json
+    {
+      "technique_id": "T1078"
+    }
+    ```
+*   **Example Successful Response (Structure):**
+    ```json
+    [
+      {
+        "id": "M1015",
+        "name": "Application Isolation and Sandboxing",
+        "description": "Application isolation and sandboxing may..."
+      },
+      {
+        "id": "M1017",
+        "name": "User Training",
+        "description": "Train users to be aware of the risks of reusing credentials..."
+      }
+    ]
+    ```
+    (Note: An empty list `[]` is returned if a valid technique has no associated mitigations.)
 
-- 取消 main.py 末尾的 mcp.serve() 注释，启用 uvicorn 相关代码。
-- 启动服务：
-  ```bash
-  python main.py
-  # 或
-  uvicorn main:app --host 0.0.0.0 --port 8001
-  ```
-- MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
+### 3. `query_detections`
 
-- **工具名称**：`query_technique`、`query_mitigations`、`query_detections`、`list_tactics`
-- **参数示例**：
-  - 按ID查询技术：
+**Description (from `main.py`):** 根据ATT&CK技术ID查询相关的检测方法或数据组件。为每个检测方法提供其来源(数据组件名称)和描述。
+(Query related detection methods or data components based on ATT&CK technique ID. Provide its source (data component name) and description for each detection method.)
+
+**Arguments:**
+
+*   `technique_id` (string, required): The exact ID of the technique for which to find detection methods/data components (e.g., "T1059.001").
+
+**Behavior & Response:**
+
+*   Returns a list of detection data component objects associated with the technique. Each object includes the "source" (data component name) and "description".
+*   If the technique ID is invalid or not found, returns an error dictionary: `{"error": "未找到技术ID TXXXX"}`.
+*   **Example Request:**
     ```json
     {
       "technique_id": "T1059.001"
     }
     ```
-  - 按名称模糊搜索技术：
+*   **Example Successful Response (Structure):**
     ```json
-    {
-      "tech_name": "phishing"
-    }
+    [
+      {
+        "source": "Command: Command Execution",
+        "description": "Monitor executed commands and arguments for PowerShell..."
+      },
+      {
+        "source": "Process: Process Creation",
+        "description": "Monitor for newly created processes that execute PowerShell..."
+      }
+    ]
     ```
-  - 查询技术缓解措施：
-    ```json
-    {
-      "technique_id": "T1059.001"
-    }
-    ```
-  - 查询技术检测方法：
-    ```json
-    {
-      "technique_id": "T1059.001"
-    }
-    ```
-  - 查询战术列表：
+    (Note: An empty list `[]` is returned if a valid technique has no associated detection data components.)
+
+### 4. `list_tactics`
+
+**Description (from `main.py`):** 获取并列出MITRE ATT&CK框架中定义的所有战术。为每个战术提供ID、名称和描述。
+(Get and list all tactics defined in the MITRE ATT&CK framework. Provide ID, name, and description for each tactic.)
+
+**Arguments:**
+
+*   None.
+
+**Behavior & Response:**
+
+*   Returns a list of all ATT&CK tactics. Each tactic object in the list includes its "id", "name", and "description".
+*   **Example Request:**
     ```json
     {}
     ```
+*   **Example Successful Response (Structure - showing one tactic):**
+    ```json
+    [
+      {
+        "id": "TA0001",
+        "name": "Initial Access",
+        "description": "The adversary is trying to get into your network..."
+      }
+      // ... (typically 13 more tactics for Enterprise ATT&CK)
+    ]
+    ```
 
-> 具体的客户端配置方式请参考您的 MCP 客户端文档，将上述服务地址和工具名称填入对应位置即可。
+### 5. `health_check`
 
-## Installation
+**Description (from `main.py`):** Checks the server status and confirms ATT&CK data is loaded. Returns basic statistics about the loaded data.
 
-1.  Clone this repository.
-2.  Install the required dependencies using `pip install -r requirements.txt`.
-3.  Configure the MCP server in your MCP client.
+**Arguments:**
 
-## ATT&CK
+*   None.
 
-ATT&CK is a curated knowledge base and model for cyber adversary behavior, reflecting the various phases of an adversary's attack lifecycle and the platforms they are known to target. ATT&CK is useful for understanding security risks against any specific technology or organization.
+**Behavior & Response:**
 
-## 快速启动
+*   Attempts to load or verify that the ATT&CK data (`enterprise-attack.json`) is loaded into memory.
+*   Returns a status object indicating success or failure, along with counts of loaded techniques and tactics.
+*   **Example Request:**
+    ```json
+    {}
+    ```
+*   **Example Successful Response:**
+    ```json
+    {
+      "status": "OK",
+      "message": "ATT&CK data loaded successfully.",
+      "loaded_techniques_count": 701, // Example count
+      "loaded_tactics_count": 14
+    }
+    ```
+*   **Example Error Response (if data loading fails):**
+    ```json
+    {
+      "status": "ERROR",
+      "message": "ATT&CK data could not be loaded." 
+      // Or a more specific error: "ATT&CK data could not be loaded or processed. Error: <details>"
+    }
+    ```
 
-### 方式一：直接用 Python 脚本运行（开发/调试推荐）
+## Setup and Usage
 
-1. 安装依赖（建议在虚拟环境中）：
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. 确保 enterprise-attack.json 数据集在项目根目录。
-3. 启动服务：
-   ```bash
-   python main.py
-   ```
-4. 服务默认监听 http://127.0.0.1:8001
+### Prerequisites
+* Python 3.8+
+* `pip` for installing dependencies.
 
-### 方式二：生产环境推荐（Docker 或 Uvicorn）
+### Installation
+1.  Clone this repository:
+    ```bash
+    git clone <repository_url>
+    cd attAck-mcp-server
+    ```
+2.  Install the required dependencies (preferably in a virtual environment):
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  Ensure the `enterprise-attack.json` file (MITRE ATT&CK STIX data) is present in the project root directory. This file is automatically downloaded by `mitreattack-python` if not found during the first run of `ensure_attack_data_loaded()` in `main.py`, but it's good practice to ensure it's managed appropriately.
 
-#### Docker
-1. 构建镜像：
-   ```bash
-   docker build -t attack-mcp-server .
-   ```
-2. 运行容器：
-   ```bash
-   docker run -p 8001:8001 attack-mcp-server
-   ```
+### Running the Server
 
-#### Uvicorn 命令行
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port 8001
-   ```
+The server can be run in two modes:
+
+**1. Local Stdio Mode (Recommended for Smithery/Local AI Agent Integration)**
+
+*   This is the default mode when running `main.py` directly.
+*   **Command:**
+    ```bash
+    python main.py
+    ```
+*   The MCP server communicates over standard input/output.
+*   Configure your MCP client for "local/stdio" service type. No host/port needed.
+
+**2. HTTP/SSE Mode (For Remote Access, Development, Debugging)**
+
+*   To enable this mode, you need to modify `main.py`:
+    1.  Comment out `mcp.run()` at the end of the file.
+    2.  Uncomment the `uvicorn.run(...)` block.
+*   **Command (after modifying `main.py`):**
+    ```bash
+    python main.py
+    ```
+    Alternatively, you can run directly with Uvicorn without modifying the file if `app = mcp.sse_app()` is accessible:
+    ```bash
+    uvicorn main:app --host 0.0.0.0 --port 8001 --log-level info
+    ```
+*   The MCP server will be available via HTTP SSE.
+*   Configure your MCP client for "http" service type, using the appropriate URL (e.g., `http://127.0.0.1:8001/sse`).
+
+## ATT&CK Framework
+
+ATT&CK® is a globally-accessible knowledge base of adversary tactics and techniques based on real-world observations. The ATT&CK knowledge base is used as a foundation for the development of specific threat models and methodologies in the private sector, in government, and in the cybersecurity product and service community.
 
 ---
 
-## API 说明
-- /query_technique 通过ID或名称查询攻击技术详情（支持名称模糊搜索）
-- /query_mitigations 查询指定技术的缓解措施
-- /query_detections 查询指定技术的检测方法  
-- /list_tactics 获取所有ATT&CK战术分类
-
----
-
-如有问题请联系维护者。
+For issues or contributions, please refer to the project's repository.

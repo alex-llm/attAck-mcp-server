@@ -207,6 +207,40 @@ async def get_all_tactics():
     logger.info(f"返回 {len(tactics)} 个战术")
     return tactics
 
+@mcp.tool(
+    name="health_check",
+    description="Checks the server status and confirms ATT&CK data is loaded. Returns basic statistics about the loaded data."
+)
+async def health_check_func():
+    """
+    Performs a health check on the server.
+    Ensures ATT&CK data is loaded and returns basic statistics.
+    """
+    try:
+        ensure_attack_data_loaded()
+        if attack_data and TECH_CACHE:
+            tactics_count = len(attack_data.get_tactics())
+            return {
+                "status": "OK",
+                "message": "ATT&CK data loaded successfully.",
+                "loaded_techniques_count": len(TECH_CACHE),
+                "loaded_tactics_count": tactics_count
+            }
+        else:
+            # This case should ideally not be reached if ensure_attack_data_loaded works correctly
+            # or raises an exception.
+            logger.error("Health check failed: attack_data or TECH_CACHE is None after ensure_attack_data_loaded.")
+            return {
+                "status": "ERROR",
+                "message": "ATT&CK data could not be loaded."
+            }
+    except Exception as e:
+        logger.error(f"Health check encountered an error: {str(e)}")
+        return {
+            "status": "ERROR",
+            "message": f"ATT&CK data could not be loaded or processed. Error: {str(e)}"
+        }
+
 app = mcp.sse_app()
 
 if __name__ == "__main__":

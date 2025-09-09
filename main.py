@@ -7,7 +7,6 @@ import json
 from typing import Optional
 import asyncio
 import logging
-import threading
 import os
 
 # 配置日志
@@ -24,17 +23,19 @@ mcp = FastMCP(
 
 attack_data = None
 TECH_CACHE = None
-attack_data_lock = threading.Lock()
+TECH_NAME_CACHE = None
+attack_data_lock = asyncio.Lock()
 
-def ensure_attack_data_loaded():
-    global attack_data, TECH_CACHE
-    if attack_data is None or TECH_CACHE is None:
-        with attack_data_lock:
-            if attack_data is None or TECH_CACHE is None:
-                from mitreattack.stix20 import MitreAttackData
+async def ensure_attack_data_loaded():
+    global attack_data, TECH_CACHE, TECH_NAME_CACHE
+    if attack_data is None or TECH_CACHE is None or TECH_NAME_CACHE is None:
+        async with attack_data_lock:
+            if attack_data is None or TECH_CACHE is None or TECH_NAME_CACHE is None:
                 logger.info("首次加载ATT&CK数据集，可能需要几秒...")
-                attack_data = MitreAttackData("enterprise-attack.json")
+                data_path = os.path.join(os.path.dirname(__file__), "enterprise-attack.json")
+                attack_data = MitreAttackData(data_path)
                 TECH_CACHE = {t.external_references[0].external_id: t for t in attack_data.get_techniques()}
+                TECH_NAME_CACHE = {tid: tech.name.lower() for tid, tech in TECH_CACHE.items()}
                 logger.info(f"成功加载 {len(TECH_CACHE)} 个技术条目")
 
 # 核心查询工具
@@ -67,7 +68,7 @@ async def query_attack_technique(
             - 如果是名称搜索，返回一个格式为 {"results": [...], "count": N} 的字典，其中 "results" 是技术摘要列表，"count" 是结果数量。
             - 如果参数无效 (例如两者都未提供) 或查询过程中发生内部错误，可能返回包含 "error" 键的字典或引发HTTPException。
     """
-    ensure_attack_data_loaded()
+    await ensure_attack_data_loaded()
     logger.info(f"收到查询请求 - ID: {technique_id}, 名称: {tech_name}")
     try:
         if technique_id:
@@ -84,10 +85,11 @@ async def query_attack_technique(
             # 名称模糊搜索逻辑
             results = []
             search_term = tech_name.lower()
-            for tech in TECH_CACHE.values():
-                if search_term in tech.name.lower():
+            for tid, name_lower in TECH_NAME_CACHE.items():
+                if search_term in name_lower:
+                    tech = TECH_CACHE[tid]
                     results.append({
-                        "id": tech.external_references[0].external_id,
+                        "id": tid,
                         "name": tech.name,
                         "description": tech.description[:150] + "..."  # 摘要显示
                     })
@@ -144,7 +146,7 @@ async def query_mitigations(technique_id: str):
         list: 一个包含缓解措施对象的列表。每个对象包含 "id", "name", 和 "description"。
               如果技术ID无效或未找到，返回一个包含 "error" 键的字典，例如: {"error": "未找到技术ID TXXXX"}。
     """
-    ensure_attack_data_loaded()
+    await ensure_attack_data_loaded()
     if technique_id.upper() not in TECH_CACHE:
         return {"error": f"未找到技术ID {technique_id}"}
     
@@ -171,7 +173,7 @@ async def query_detections(technique_id: str):
         list: 一个包含检测数据组件对象的列表。每个对象包含 "source" (数据组件名称) 和 "description"。
               如果技术ID无效或未找到，返回一个包含 "error" 键的字典，例如: {"error": "未找到技术ID TXXXX"}。
     """
-    ensure_attack_data_loaded()
+    await ensure_attack_data_loaded()
     if technique_id.upper() not in TECH_CACHE:
         return {"error": f"未找到技术ID {technique_id}"}
     
@@ -197,7 +199,7 @@ async def get_all_tactics():
     返回:
         list: 一个包含战术对象的列表。每个对象包含 "id", "name", 和 "description"。
     """
-    ensure_attack_data_loaded()
+    await ensure_attack_data_loaded()
     logger.info("正在获取所有战术列表")
     tactics = [{
         "id": t.external_references[0].external_id,

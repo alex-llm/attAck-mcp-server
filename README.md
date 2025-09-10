@@ -43,6 +43,12 @@ The server provides the following tools:
         ```
 *   **list\_tactics:** This tool allows you to retrieve a list of all ATT&CK tactics.
     *   **Arguments:** None
+*   **server_info:** 返回服务与数据集的版本、维护者和Git信息。
+    *   **Arguments:** None
+    *   **Example:**
+        ```json
+        {}
+        ```
 
 ## Usage
 
@@ -71,7 +77,7 @@ To use this MCP server, you need to have an MCP client configured to connect to 
   ```
 - MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
 
-- **工具名称**：`query_technique`、`query_mitigations`、`query_detections`、`list_tactics`
+- **工具名称**：`query_technique`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
 - **参数示例**：
   - 按ID查询技术：
     ```json
@@ -98,6 +104,10 @@ To use this MCP server, you need to have an MCP client configured to connect to 
     }
     ```
   - 查询战术列表：
+    ```json
+    {}
+    ```
+  - 查询服务与数据集信息：
     ```json
     {}
     ```
@@ -151,8 +161,9 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
 ## API 说明
 - /query_technique 通过ID或名称查询攻击技术详情（支持名称模糊搜索）
 - /query_mitigations 查询指定技术的缓解措施
-- /query_detections 查询指定技术的检测方法  
+- /query_detections 查询指定技术的检测方法
 - /list_tactics 获取所有ATT&CK战术分类
+- /server_info 返回服务版本、数据集版本和Git信息
 
 ---
 

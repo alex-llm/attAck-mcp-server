@@ -15,10 +15,13 @@ logger = logging.getLogger(__name__)
 
 # 初始化MCP服务器
 logger.info("正在初始化MCP服务器...")
+PROJECT_VERSION = "2.1"
+PROJECT_NAME = "ATT&CK_Query_Service"
+PROJECT_DESCRIPTION = "提供MITRE ATT&CK技术、战术及缓解措施的查询服务"
 mcp = FastMCP(
-    name="ATT&CK_Query_Service",
-    description="提供MITRE ATT&CK技术、战术及缓解措施的查询服务",
-    version="2.1"
+    name=PROJECT_NAME,
+    description=PROJECT_DESCRIPTION,
+    version=PROJECT_VERSION
 )
 
 attack_data = None
@@ -208,6 +211,63 @@ async def get_all_tactics():
     } for t in attack_data.get_tactics()]
     logger.info(f"返回 {len(tactics)} 个战术")
     return tactics
+
+
+@mcp.tool(
+    name="server_info",
+    description="返回项目工程、MCP库与ATT&CK数据集版本及维护信息，包括Git状态。",
+)
+async def server_info():
+    """获取服务和数据集的版本、维护者及Git信息。"""
+    import importlib.metadata
+    import subprocess
+
+    info = {
+        "intro": "Provides project, MCP library, ATT&CK dataset and git version details.",
+        "project": {
+            "name": PROJECT_NAME,
+            "version": PROJECT_VERSION,
+            "description": PROJECT_DESCRIPTION,
+            "maintainer": "Alex louis <ycliu912@126.com>",
+        },
+        "mcp": {
+            "library_version": importlib.metadata.version("mcp"),
+        },
+        "attack_dataset": {},
+        "git": {},
+    }
+
+    try:
+        data_path = os.path.join(os.path.dirname(__file__), "enterprise-attack.json")
+        with open(data_path, "r") as f:
+            data = json.load(f)
+        info["attack_dataset"] = {
+            "spec_version": data.get("spec_version"),
+            "attack_spec_version": data.get("objects", [{}])[0].get("x_mitre_attack_spec_version"),
+        }
+    except Exception as e:
+        info["attack_dataset"] = {"error": str(e)}
+
+    try:
+        git_version = subprocess.check_output(["git", "--version"]).decode().strip()
+        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
+        commit_date = subprocess.check_output([
+            "git",
+            "log",
+            "-1",
+            "--pretty=%ad",
+        ]).decode().strip()
+        status_out = subprocess.check_output(["git", "status", "--short"]).decode().strip()
+        info["git"] = {
+            "version": git_version,
+            "commit_id": commit_id,
+            "commit_date": commit_date,
+            "status": "clean" if not status_out else status_out,
+        }
+    except Exception as e:
+        info["git"] = {"error": str(e)}
+
+    return info
 
 app = mcp.sse_app()
 

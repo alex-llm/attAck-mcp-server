@@ -23,6 +23,23 @@ The server provides the following tools:
           "tech_name": "phishing"
         }
         ```
+*   **search\_technique\_full:**  通过技术 ID 或名称查询攻击技术的所有详细信息，返回的数据包含 ID、名称、描述、适用平台、Kill Chain 阶段、参考资料、子技术及缓解措施。名称搜索返回格式为 `{ "results": [...], "count": N }` 的字典，其中 `results` 为匹配技术完整数据列表。
+    *   **Arguments:**
+        *   `technique_id` (string, optional): 要查询的技术ID。
+        *   `tech_name` (string, optional): 技术名称关键字，支持模糊匹配。
+    *   **Example:**
+        - 按ID查询：
+        ```json
+        {
+          "technique_id": "T1059.001"
+        }
+        ```
+        - 按名称模糊搜索：
+        ```json
+        {
+          "tech_name": "phishing"
+        }
+        ```
 *   **query\_mitigations:** 查询技术的缓解措施
     *   **Arguments:**
         *   `technique_id` (string, required): 要查询的技术ID
@@ -77,7 +94,7 @@ To use this MCP server, you need to have an MCP client configured to connect to 
   ```
 - MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
 
-- **工具名称**：`query_technique`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
+- **工具名称**：`query_technique`、`search_technique_full`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
 - **参数示例**：
   - 按ID查询技术：
     ```json
@@ -86,6 +103,12 @@ To use this MCP server, you need to have an MCP client configured to connect to 
     }
     ```
   - 按名称模糊搜索技术：
+    ```json
+    {
+      "tech_name": "phishing"
+    }
+    ```
+  - 使用 `search_technique_full` 获取技术的完整详细信息：
     ```json
     {
       "tech_name": "phishing"
@@ -160,6 +183,7 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
 
 ## API 说明
 - /query_technique 通过ID或名称查询攻击技术详情（支持名称模糊搜索）
+- /search_technique_full 通过ID或名称查询攻击技术的完整详细信息（名称搜索返回匹配技术列表，包含子技术与缓解措施）
 - /query_mitigations 查询指定技术的缓解措施
 - /query_detections 查询指定技术的检测方法
 - /list_tactics 获取所有ATT&CK战术分类

@@ -221,6 +221,7 @@ async def server_info():
     """获取服务和数据集的版本、维护者及Git信息。"""
     import importlib.metadata
     import subprocess
+    import shutil
 
     info = {
         "intro": "Provides project, MCP library, ATT&CK dataset and git version details.",
@@ -248,24 +249,28 @@ async def server_info():
     except Exception as e:
         info["attack_dataset"] = {"error": str(e)}
 
-    try:
-        git_version = subprocess.check_output(["git", "--version"]).decode().strip()
-        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
-        commit_date = subprocess.check_output([
-            "git",
-            "log",
-            "-1",
-            "--pretty=%ad",
-        ]).decode().strip()
-        status_out = subprocess.check_output(["git", "status", "--short"]).decode().strip()
-        info["git"] = {
-            "version": git_version,
-            "commit_id": commit_id,
-            "commit_date": commit_date,
-            "status": "clean" if not status_out else status_out,
-        }
-    except Exception as e:
-        info["git"] = {"error": str(e)}
+    git_cmd = shutil.which("git")
+    if git_cmd:
+        try:
+            git_version = subprocess.check_output([git_cmd, "--version"]).decode().strip()
+            commit_id = subprocess.check_output([git_cmd, "rev-parse", "HEAD"]).decode().strip()
+            commit_date = subprocess.check_output([
+                git_cmd,
+                "log",
+                "-1",
+                "--pretty=%ad",
+            ]).decode().strip()
+            status_out = subprocess.check_output([git_cmd, "status", "--short"]).decode().strip()
+            info["git"] = {
+                "version": git_version,
+                "commit_id": commit_id,
+                "commit_date": commit_date,
+                "status": "clean" if not status_out else status_out,
+            }
+        except Exception as e:
+            info["git"] = {"error": str(e)}
+    else:
+        info["git"] = {"error": "git command not found"}
 
     return info
 

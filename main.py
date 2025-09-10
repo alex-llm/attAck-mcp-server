@@ -29,6 +29,26 @@ TECH_CACHE = None
 TECH_NAME_CACHE = None
 attack_data_lock = asyncio.Lock()
 
+
+def read_commit_hash(repo_root: str) -> Optional[str]:
+    """Read the current commit hash from the `.git` directory without invoking Git."""
+    git_dir = os.path.join(repo_root, ".git")
+    head_file = os.path.join(git_dir, "HEAD")
+    if not os.path.exists(head_file):
+        return None
+
+    with open(head_file, "r") as f:
+        ref_line = f.read().strip()
+
+    if ref_line.startswith("ref:"):
+        ref_path = os.path.join(git_dir, ref_line.split(":", 1)[1].strip())
+        if os.path.exists(ref_path):
+            with open(ref_path, "r") as f:
+                return f.read().strip()
+        return None
+    else:
+        return ref_line
+
 async def ensure_attack_data_loaded():
     global attack_data, TECH_CACHE, TECH_NAME_CACHE
     if attack_data is None or TECH_CACHE is None or TECH_NAME_CACHE is None:
@@ -118,7 +138,7 @@ def format_technique_data(tech):
         "references": [
             {
                 "source": ref.source_name,
-                "url": ref.url
+                "url": getattr(ref, "url", None)
             } for ref in tech.external_references
         ]
     }
@@ -220,7 +240,6 @@ async def get_all_tactics():
 async def server_info():
     """获取服务和数据集的版本、维护者及Git信息。"""
     import importlib.metadata
-    import subprocess
 
     info = {
         "intro": "Provides project, MCP library, ATT&CK dataset and git version details.",
@@ -248,24 +267,11 @@ async def server_info():
     except Exception as e:
         info["attack_dataset"] = {"error": str(e)}
 
-    try:
-        git_version = subprocess.check_output(["git", "--version"]).decode().strip()
-        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
-        commit_date = subprocess.check_output([
-            "git",
-            "log",
-            "-1",
-            "--pretty=%ad",
-        ]).decode().strip()
-        status_out = subprocess.check_output(["git", "status", "--short"]).decode().strip()
-        info["git"] = {
-            "version": git_version,
-            "commit_id": commit_id,
-            "commit_date": commit_date,
-            "status": "clean" if not status_out else status_out,
-        }
-    except Exception as e:
-        info["git"] = {"error": str(e)}
+    commit_id = read_commit_hash(os.path.dirname(__file__))
+    if commit_id:
+        info["git"] = {"commit_id": commit_id}
+    else:
+        info["git"] = {"error": "git metadata not found"}
 
     return info
 

@@ -241,8 +241,6 @@ async def get_all_tactics():
 async def server_info():
     """获取服务和数据集的版本、维护者及Git信息。"""
     import importlib.metadata
-    import subprocess
-    import shutil
 
     info = {
         "intro": "Provides project, MCP library, ATT&CK dataset and git version details.",
@@ -271,33 +269,10 @@ async def server_info():
         info["attack_dataset"] = {"error": str(e)}
 
     commit_id = read_commit_hash(os.path.dirname(__file__))
-    git_cmd = shutil.which("git")
-    if git_cmd:
-        try:
-            git_version = subprocess.check_output([git_cmd, "--version"]).decode().strip()
-            commit_date = subprocess.check_output([
-                git_cmd,
-                "log",
-                "-1",
-                "--pretty=%ad",
-            ]).decode().strip()
-            status_out = subprocess.check_output([git_cmd, "status", "--short"]).decode().strip()
-            info["git"] = {
-                "commit_id": commit_id,
-                "version": git_version,
-                "commit_date": commit_date,
-                "status": "clean" if not status_out else status_out,
-            }
-        except FileNotFoundError:
-            # git executable vanished after which() or is otherwise missing
-            info["git"] = {"commit_id": commit_id} if commit_id else {"error": "git command not found"}
-        except Exception as e:
-            info["git"] = {"commit_id": commit_id, "error": str(e)} if commit_id else {"error": str(e)}
+    if commit_id:
+        info["git"] = {"commit_id": commit_id}
     else:
-        if commit_id:
-            info["git"] = {"commit_id": commit_id}
-        else:
-            info["git"] = {"error": "git metadata not found"}
+        info["git"] = {"error": "git metadata not found"}
 
     return info
 

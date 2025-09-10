@@ -12,4 +12,5 @@ startCommand:
     })
 tools:
   - query_technique
+  - search_technique_full
   - list_tactics

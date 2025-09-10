@@ -127,7 +127,7 @@ async def query_attack_technique(
         logger.error(f"查询过程中发生错误: {str(e)}")
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
-def format_technique_data(tech):
+def format_technique_data(tech, include_mitigations: bool = False):
     """标准化技术数据格式"""
     data = {
         "id": tech.external_references[0].external_id,
@@ -142,7 +142,7 @@ def format_technique_data(tech):
             } for ref in tech.external_references
         ]
     }
-    
+
     # 添加子技术信息
     # Use the technique's STIX ID to get subtechniques
     subtechniques = attack_data.get_subtechniques_of_technique(tech.id)
@@ -151,8 +151,76 @@ def format_technique_data(tech):
             "id": st["object"].external_references[0].external_id,
             "name": st["object"].name
         } for st in subtechniques]
-    
+
+    if include_mitigations:
+        mitigations = attack_data.get_mitigations_mitigating_technique(tech.id)
+        if mitigations:
+            data["mitigations"] = [{
+                "id": m["object"].external_references[0].external_id,
+                "name": m["object"].name,
+                "description": m["object"].description,
+            } for m in mitigations]
+
     return data
+
+@mcp.tool(
+    name="search_technique_full",
+    description=(
+        "通过技术ID精确查询或技术名称模糊搜索 ATT&CK 攻击技术的所有详尽信息。"
+        "返回的数据包含 ID、名称、描述、适用平台、Kill Chain 阶段、参考资料、子技术及缓解措施。"
+        "ID 查询返回单个技术的完整数据；名称搜索返回所有匹配技术的完整数据列表并包含结果数量。"
+    ),
+)
+async def search_technique_full(
+    technique_id: Optional[str] = None,
+    tech_name: Optional[str] = None,
+):
+    """查询并返回 ATT&CK 技术的完整信息。
+
+    - 当提供 ``technique_id`` 时 (例如 ``"T1059.001"``)，执行精确匹配并返回该技术的完整详情。
+    - 当提供 ``tech_name`` 时，执行模糊匹配，返回所有匹配技术的完整详情列表。
+
+    返回的每个技术详情都包含以下字段：
+    ``id``、``name``、``description``、``platforms``、``kill_chain``、``references``、``subtechniques`` (若存在) 以及 ``mitigations`` (若存在)。
+
+    参数:
+        technique_id (Optional[str]): 要查询的 ATT&CK 技术 ID。若提供，将优先进行 ID 查询。
+        tech_name (Optional[str]): 用于模糊搜索的技术名称关键词。
+
+    返回:
+        dict: 
+            - ID 查询成功时返回单个技术的完整详情字典。
+            - 名称搜索时返回 ``{"results": [...], "count": N}``，其中 ``results`` 是技术完整详情列表，``count`` 为匹配数量。
+    """
+    await ensure_attack_data_loaded()
+    logger.info(f"收到详细查询请求 - ID: {technique_id}, 名称: {tech_name}")
+    try:
+        if technique_id:
+            if technique_id.upper() not in TECH_CACHE:
+                logger.warning(f"未找到技术ID: {technique_id}")
+                return {"error": f"未找到技术ID {technique_id}"}
+
+            tech = TECH_CACHE[technique_id.upper()]
+            logger.info(f"成功查询到技术: {tech.name}")
+            return format_technique_data(tech, include_mitigations=True)
+
+        elif tech_name:
+            results = []
+            search_term = tech_name.lower()
+            for tid, name_lower in TECH_NAME_CACHE.items():
+                if search_term in name_lower:
+                    tech = TECH_CACHE[tid]
+                    results.append(format_technique_data(tech, include_mitigations=True))
+            logger.info(f"名称搜索 '{tech_name}' 返回 {len(results)} 个结果")
+            return {"results": results, "count": len(results)}
+
+        else:
+            logger.error("请求缺少必要参数")
+            raise HTTPException(status_code=400, detail="必须提供ID或名称参数")
+
+    except Exception as e:
+        logger.error(f"查询过程中发生错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 @mcp.tool(
     name="query_mitigations",

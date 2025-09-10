@@ -138,7 +138,7 @@ def format_technique_data(tech):
         "references": [
             {
                 "source": ref.source_name,
-                "url": ref.url
+                "url": getattr(ref, "url", None)
             } for ref in tech.external_references
         ]
     }

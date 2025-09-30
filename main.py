@@ -2,6 +2,7 @@
 from mcp.server.fastmcp import FastMCP
 from mitreattack.stix20 import MitreAttackData
 from fastapi import HTTPException
+from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 import argparse
 import sys
@@ -345,9 +346,6 @@ async def server_info():
 
     return info
 
-app = mcp.sse_app()
-
-
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="ATT&CK Query Service")
     parser.add_argument(
@@ -364,13 +362,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--host",
         default=None,
-        help="HTTP 模式下监听的主机地址 (默认: 127.0.0.1 或 $HOST)",
+        help="HTTP 模式下监听的主机地址 (默认: 0.0.0.0 或 $HOST)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8001,
-        help="HTTP 模式下监听的端口 (默认: 8001)",
+        default=8081,
+        help="HTTP 模式下监听的端口 (默认: 8081)",
     )
     parser.add_argument(
         "--log-level",
@@ -389,8 +387,12 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
     avoid hard failures we normalise a wider range of aliases to one of the two
     execution modes supported by the server.
     """
-
-    env_mode = os.getenv("ATTACK_MCP_MODE") or os.getenv("MCP_TRANSPORT")
+    
+    env_mode = (
+        os.getenv("ATTACK_MCP_MODE")
+        or os.getenv("TRANSPORT")
+        or os.getenv("MCP_TRANSPORT")
+    )
     raw_mode = (cli_mode or env_mode or "").strip().lower()
 
     def _canonicalise(value: str) -> str:
@@ -411,6 +413,7 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
         "streamable": "http",
         "streamablehttp": "http",
         "streamablehttptransport": "http",
+        "streamablehttps": "http",
         "httpstreaming": "http",
         "stdionotsupported": "http",
     }
@@ -435,27 +438,35 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
             f"Unsupported mode '{raw_mode}'. Use 'stdio' or 'http'."
         )
 
-    resolved_mode = mode_aliases[raw_mode]
     if resolved_mode:
         return resolved_mode
 
     # No explicit mode was provided. Default to HTTP when a port hint is
     # available (common on remote deployments), otherwise fall back to stdio.
-    if os.getenv("ATTACK_MCP_PORT") or os.getenv("PORT"):
+    if (
+        os.getenv("ATTACK_MCP_PORT")
+        or os.getenv("PORT")
+        or os.getenv("SMITHERY_PORT")
+    ):
         return "http"
 
     return "stdio"
 
 
 def resolve_host(cli_host: Optional[str]) -> str:
-    return cli_host or os.getenv("ATTACK_MCP_HOST") or os.getenv("HOST") or "127.0.0.1"
+    return (
+        cli_host
+        or os.getenv("ATTACK_MCP_HOST")
+        or os.getenv("HOST")
+        or "0.0.0.0"
+    )
 
 
 def resolve_port(cli_port: Optional[int]) -> int:
     if cli_port is not None:
         return cli_port
 
-    for env_var in ("ATTACK_MCP_PORT", "PORT"):
+    for env_var in ("ATTACK_MCP_PORT", "PORT", "SMITHERY_PORT"):
         value = os.getenv(env_var)
         if value:
             try:
@@ -463,7 +474,7 @@ def resolve_port(cli_port: Optional[int]) -> int:
             except ValueError:
                 raise ValueError(f"环境变量 {env_var} 的值 '{value}' 不是有效的端口号") from None
 
-    return 8001
+    return 8081
 
 
 def resolve_log_level(cli_log_level: Optional[str]) -> str:
@@ -490,13 +501,31 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     if mode == "stdio":
         mcp.run()
-    else:
-        uvicorn.run(
-            app=app,
-            host=host,
-            port=port,
-            log_level=log_level,
-        )
+        return
+
+    app = create_http_app()
+    uvicorn.run(
+        app=app,
+        host=host,
+        port=port,
+        log_level=log_level,
+    )
+
+
+def create_http_app():
+    """Create the FastMCP HTTP application with permissive CORS headers."""
+
+    app = mcp.streamable_http_app()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["mcp-session-id", "mcp-protocol-version"],
+        max_age=86400,
+    )
+    return app
 
 
 if __name__ == "__main__":

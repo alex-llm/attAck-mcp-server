@@ -393,6 +393,13 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
     env_mode = os.getenv("ATTACK_MCP_MODE") or os.getenv("MCP_TRANSPORT")
     raw_mode = (cli_mode or env_mode or "").strip().lower()
 
+    def _canonicalise(value: str) -> str:
+        """Return a normalised key containing only lowercase alpha-numerics."""
+
+        return "".join(ch for ch in value if ch.isalnum())
+
+    canonical_mode = _canonicalise(raw_mode)
+
     mode_aliases = {
         "": None,
         "stdio": "stdio",
@@ -402,11 +409,28 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
         "stream": "http",
         "streaming": "http",
         "streamable": "http",
-        "http-streaming": "http",
+        "streamablehttp": "http",
+        "streamablehttptransport": "http",
+        "httpstreaming": "http",
         "stdionotsupported": "http",
     }
 
-    if raw_mode not in mode_aliases:
+    if raw_mode in mode_aliases:
+        resolved_mode = mode_aliases[raw_mode]
+    else:
+        resolved_mode = mode_aliases.get(canonical_mode)
+
+    if not resolved_mode:
+        # If the canonical form still contains hints of http/streaming we fall
+        # back to the HTTP server.  This allows values such as "streamable-http"
+        # or "streamable http" to work without having to list every variant.
+        if canonical_mode:
+            if "http" in canonical_mode or "sse" in canonical_mode or "stream" in canonical_mode:
+                resolved_mode = "http"
+            elif "stdio" in canonical_mode:
+                resolved_mode = "stdio"
+
+    if raw_mode and resolved_mode is None:
         raise ValueError(
             f"Unsupported mode '{raw_mode}'. Use 'stdio' or 'http'."
         )

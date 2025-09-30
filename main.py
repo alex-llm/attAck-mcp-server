@@ -571,6 +571,143 @@ def create_http_app():
                     }
                 }
                 return JSONResponse(response)
+            elif data.get("method") == "tools/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": data.get("id"),
+                    "result": {"tools": [
+                        {
+                            "name": "query_technique",
+                            "description": "通过技术ID精确查询或技术名称模糊搜索ATT&CK攻击技术的详细信息。ID查询返回单个技术的完整数据，名称搜索返回匹配技术列表的摘要。",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "technique_id": {"type": "string", "description": "要查询的ATT&CK技术ID。如果提供此参数，则优先使用ID进行精确查询。"},
+                                    "tech_name": {"type": "string", "description": "用于模糊搜索的ATT&CK技术名称中的关键词。如果未提供 `technique_id`，则使用此参数进行搜索。"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "search_technique_full",
+                            "description": (
+                                "通过技术ID精确查询或技术名称模糊搜索 ATT&CK 攻击技术的所有详尽信息。"
+                                "返回的数据包含 ID、名称、描述、适用平台、Kill Chain 阶段、参考资料、子技术及缓解措施。"
+                                "ID 查询返回单个技术的完整数据；名称搜索返回所有匹配技术的完整数据列表并包含结果数量。"
+                            ),
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "technique_id": {"type": "string", "description": "要查询的 ATT&CK 技术 ID。若提供，将优先进行 ID 查询。"},
+                                    "tech_name": {"type": "string", "description": "用于模糊搜索的技术名称关键词。"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "query_mitigations",
+                            "description": "根据ATT&CK技术ID查询相关的缓解措施列表。为每个缓解措施提供ID、名称和描述。",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "technique_id": {"type": "string", "description": "要查询缓解措施的ATT&CK技术ID (例如 \"T1059.001\")。ID必须精确匹配。"}
+                                },
+                                "required": ["technique_id"]
+                            }
+                        },
+                        {
+                            "name": "query_detections",
+                            "description": "根据ATT&CK技术ID查询相关的检测方法或数据组件。为每个检测方法提供其来源(数据组件名称)和描述。",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "technique_id": {"type": "string", "description": "要查询检测方法的ATT&CK技术ID (例如 \"T1059.001\")。ID必须精确匹配。"}
+                                },
+                                "required": ["technique_id"]
+                            }
+                        },
+                        {
+                            "name": "list_tactics",
+                            "description": "获取并列出MITRE ATT&CK框架中定义的所有战术。为每个战术提供ID、名称和描述。",
+                            "inputSchema": {"type": "object", "properties": {}, "required": []},
+                            "outputSchema": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "name": {"type": "string"},
+                                        "description": {"type": "string"}
+                                    },
+                                    "required": ["id", "name", "description"]
+                                }
+                            }
+                        },
+                        {
+                            "name": "server_info",
+                            "description": "返回项目工程、MCP库与ATT&CK数据集版本及维护信息，包括Git状态。",
+                            "inputSchema": {"type": "object", "properties": {}, "required": []},
+                            "outputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "intro": {"type": "string"},
+                                    "project": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "version": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "maintainer": {"type": "string"}
+                                        },
+                                        "required": ["name", "version", "description", "maintainer"]
+                                    },
+                                    "mcp": {
+                                        "type": "object",
+                                        "properties": {
+                                            "library_version": {"type": "string"}
+                                        },
+                                        "required": ["library_version"]
+                                    },
+                                    "attack_dataset": {
+                                        "type": "object",
+                                        "properties": {
+                                            "spec_version": {"type": "string"},
+                                            "attack_spec_version": {"type": "string"}
+                                        },
+                                        "required": ["spec_version", "attack_spec_version"]
+                                    },
+                                    "git": {
+                                        "type": "object",
+                                        "properties": {
+                                            "commit_id": {"type": "string"},
+                                            "error": {"type": "string"}
+                                        },
+                                        "required": ["commit_id"]
+                                    }
+                                },
+                                "required": ["intro", "project", "mcp", "attack_dataset", "git"]
+                            }
+                        }
+                    ]}
+                }
+                return JSONResponse(response)
+            elif data.get("method") == "resources/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": data.get("id"),
+                    "result": {"resources": []}
+                }
+                return JSONResponse(response)
+            elif data.get("method") == "prompts/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": data.get("id"),
+                    "result": {"prompts": []}
+                }
+                return JSONResponse(response)
+            elif data.get("method") == "initialized":
+                response = {"jsonrpc": "2.0", "result": None} # Return null for initialized notification
+                return JSONResponse(response, status_code=204)
             else:
                 # 对于其他方法，返回错误
                 response = {

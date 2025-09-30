@@ -358,13 +358,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         choices=["http", "stdio"],
-        default="stdio",
-        help="选择运行模式: http 或 stdio (默认: stdio)",
+        default=None,
+        help="选择运行模式: http 或 stdio。默认会根据环境变量或回退到 stdio。",
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
-        help="HTTP 模式下监听的主机地址 (默认: 127.0.0.1)",
+        default=None,
+        help="HTTP 模式下监听的主机地址 (默认: 127.0.0.1 或 $HOST)",
     )
     parser.add_argument(
         "--port",
@@ -379,20 +379,69 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     return parser.parse_args(argv)
 
+def normalize_mode(cli_mode: Optional[str]) -> str:
+    """Resolve the execution mode from CLI arguments and environment variables."""
 
-if __name__ == "__main__":
-    args = parse_args()
+    env_mode = os.getenv("ATTACK_MCP_MODE") or os.getenv("MCP_TRANSPORT")
+    mode = (cli_mode or env_mode or "stdio").lower()
+
+    if mode not in {"stdio", "http"}:
+        raise ValueError(f"Unsupported mode '{mode}'. Use 'stdio' or 'http'.")
+
+    return mode
+
+
+def resolve_host(cli_host: Optional[str]) -> str:
+    return cli_host or os.getenv("ATTACK_MCP_HOST") or os.getenv("HOST") or "127.0.0.1"
+
+
+def resolve_port(cli_port: Optional[int]) -> int:
+    if cli_port is not None:
+        return cli_port
+
+    for env_var in ("ATTACK_MCP_PORT", "PORT"):
+        value = os.getenv(env_var)
+        if value:
+            try:
+                return int(value)
+            except ValueError:
+                raise ValueError(f"环境变量 {env_var} 的值 '{value}' 不是有效的端口号") from None
+
+    return 8001
+
+
+def resolve_log_level(cli_log_level: Optional[str]) -> str:
+    return (cli_log_level or os.getenv("ATTACK_MCP_LOG_LEVEL") or "info").lower()
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    args = parse_args(argv)
 
     if args.version:
         print(f"{PROJECT_NAME} v{PROJECT_VERSION}")
         sys.exit(0)
 
-    if args.mode == "stdio":
+    try:
+        mode = normalize_mode(args.mode)
+        host = resolve_host(args.host)
+        port = resolve_port(args.port)
+        log_level = resolve_log_level(args.log_level)
+    except ValueError as exc:
+        logger.error(str(exc))
+        sys.exit(2)
+
+    logger.info("启动模式: %s", mode)
+
+    if mode == "stdio":
         mcp.run()
     else:
         uvicorn.run(
             app=app,
-            host=args.host,
-            port=args.port,
-            log_level=args.log_level,
+            host=host,
+            port=port,
+            log_level=log_level,
         )
+
+
+if __name__ == "__main__":
+    main()

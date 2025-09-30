@@ -579,6 +579,16 @@ class MessageEndpointAliasMiddleware:
             await self._app(scope, receive, send)
             return
 
+        method = scope.get("method") or ""
+        path = scope.get("path", "")
+        query_string = scope.get("query_string", b"")
+        logger.debug(
+            "HTTP request received: method=%s path='%s' query='%s'",
+            method,
+            path or "/",
+            query_string.decode("utf-8", "ignore") if isinstance(query_string, (bytes, bytearray)) else query_string,
+        )
+
         if self._should_rewrite(scope):
             patched_scope = dict(scope)
             patched_scope["path"] = self._message_path
@@ -591,6 +601,11 @@ class MessageEndpointAliasMiddleware:
             await self._app(patched_scope, receive, send)
             return
 
+        logger.debug(
+            "Forwarding request without rewrite: method=%s path='%s'",
+            method,
+            path or "/",
+        )
         await self._app(scope, receive, send)
 
     def _should_rewrite(self, scope: Scope) -> bool:
@@ -608,6 +623,17 @@ class MessageEndpointAliasMiddleware:
 
         if normalized.rstrip("/") == self._message_path.rstrip("/"):
             return True
+
+        if normalized == "/":
+            method = (scope.get("method") or "").upper()
+            if method in {"POST", "OPTIONS"}:
+                logger.debug(
+                    "Rewriting root request '%s %s' to message endpoint '%s'",
+                    method,
+                    scope.get("path", "/"),
+                    self._message_path,
+                )
+                return True
 
         if normalized == "/" and self._has_session_identifier(scope):
             return True

@@ -627,16 +627,24 @@ class MessageEndpointAliasMiddleware:
         if normalized == "/":
             method = (scope.get("method") or "").upper()
             if method == "POST":
-                logger.debug(
-                    "Rewriting root request '%s %s' to message endpoint '%s'",
-                    method,
-                    scope.get("path", "/"),
-                    self._message_path,
-                )
-                return True
-
-        if normalized == "/" and self._has_session_identifier(scope):
-            return True
+                # Check if this is a JSON-RPC request (like from Smithery)
+                if self._is_jsonrpc_request(scope):
+                    logger.debug(
+                        "Rewriting JSON-RPC request '%s %s' to message endpoint '%s'",
+                        method,
+                        scope.get("path", "/"),
+                        self._message_path,
+                    )
+                    return True
+                # Check if it has session identifier
+                elif self._has_session_identifier(scope):
+                    logger.debug(
+                        "Rewriting session request '%s %s' to message endpoint '%s'",
+                        method,
+                        scope.get("path", "/"),
+                        self._message_path,
+                    )
+                    return True
 
         return False
 
@@ -661,6 +669,16 @@ class MessageEndpointAliasMiddleware:
             candidate = f"{candidate}/"
 
         return candidate
+
+    def _is_jsonrpc_request(self, scope: Scope) -> bool:
+        """Check if this is a JSON-RPC request by examining headers and content type."""
+        headers = scope.get("headers") or []
+        for key, value in headers:
+            if key.decode("utf-8", "ignore").lower() == "content-type":
+                content_type = value.decode("utf-8", "ignore").lower()
+                if "application/json" in content_type:
+                    return True
+        return False
 
     def _has_session_identifier(self, scope: Scope) -> bool:
         query_string = scope.get("query_string", b"")

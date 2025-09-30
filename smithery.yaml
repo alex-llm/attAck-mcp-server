@@ -5,7 +5,11 @@ build:
   dockerBuildPath: .
 startCommand:
   type: http
+  endpoint: /sse
 tools:
   - query_technique
   - search_technique_full
   - list_tactics
+  - query_mitigations
+  - query_detections
+  - server_info

@@ -15,7 +15,7 @@ from typing import Optional, List
 import asyncio
 import logging
 import os
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs, unquote, urlencode
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -593,7 +593,25 @@ class MessageEndpointAliasMiddleware:
             patched_scope = dict(scope)
             patched_scope["path"] = self._message_path
             patched_scope["raw_path"] = self._message_path.encode()
-            logger.debug(
+            
+            # 如果是JSON-RPC请求且没有session_id，自动生成一个
+            if self._is_jsonrpc_request(scope) and not self._has_session_identifier(scope):
+                import uuid
+                session_id = str(uuid.uuid4())
+                logger.info(f"Auto-generating session_id for JSON-RPC request: {session_id}")
+                
+                # 添加session_id到查询参数
+                query_string = scope.get("query_string", b"")
+                if query_string:
+                    params = parse_qs(query_string.decode("utf-8", "ignore"), keep_blank_values=True)
+                else:
+                    params = {}
+                params["session_id"] = [session_id]
+                new_query_string = urlencode(params, doseq=True).encode()
+                patched_scope["query_string"] = new_query_string
+                logger.info(f"Added session_id to query string: {new_query_string.decode()}")
+            
+            logger.info(
                 "Rewriting message alias '%s' to '%s'",
                 scope.get("path"),
                 self._message_path,

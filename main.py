@@ -541,6 +541,7 @@ def create_http_app():
         """处理Smithery的JSON-RPC请求，绕过SSE会话要求"""
         from starlette.responses import JSONResponse
         import json
+        from starlette.responses import Response
         
         try:
             body = await request.body()
@@ -562,7 +563,8 @@ def create_http_app():
                             "experimental": {},
                             "prompts": {"listChanged": False},
                             "resources": {"subscribe": False, "listChanged": False},
-                            "tools": {"listChanged": False}
+                            # 标记工具列表已更新，提示客户端主动获取可用工具。
+                            "tools": {"listChanged": True}
                         },
                         "serverInfo": {
                             "name": PROJECT_NAME,
@@ -705,9 +707,9 @@ def create_http_app():
                     "result": {"prompts": []}
                 }
                 return JSONResponse(response)
-            elif data.get("method") == "initialized":
-                response = {"jsonrpc": "2.0", "result": None} # Return null for initialized notification
-                return JSONResponse(response, status_code=204)
+            elif data.get("method") in {"initialized", "notifications/initialized"}:
+                """Acknowledge initialization notifications without returning a body."""
+                return Response(status_code=204)
             else:
                 # 对于其他方法，返回错误
                 response = {
@@ -952,7 +954,7 @@ class MessageEndpointAliasMiddleware:
                             "experimental": {},
                             "prompts": {"listChanged": False},
                             "resources": {"subscribe": False, "listChanged": False},
-                            "tools": {"listChanged": False}
+                            "tools": {"listChanged": True}
                         },
                         "serverInfo": {
                             "name": PROJECT_NAME,

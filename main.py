@@ -435,6 +435,7 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
             f"Unsupported mode '{raw_mode}'. Use 'stdio' or 'http'."
         )
 
+    resolved_mode = mode_aliases[raw_mode]
     if resolved_mode:
         return resolved_mode
 

@@ -548,6 +548,7 @@ def create_http_app():
             
             # 直接处理JSON-RPC请求，不通过SSE传输
             logger.info(f"Handling Smithery JSON-RPC request: {data.get('method', 'unknown')}")
+            logger.info("Processing JSON-RPC method: %s", data.get("method"))
             
             # 这里我们需要直接调用MCP服务器的方法
             # 这是一个简化的实现，实际应用中可能需要更复杂的处理
@@ -598,8 +599,8 @@ def create_http_app():
         debug=mcp.settings.debug,
         routes=[
             Route("/sse", endpoint=handle_sse),
-            Route("/smithery", endpoint=handle_smithery_jsonrpc, methods=["GET", "POST"]),
-            Route("/", endpoint=handle_smithery_jsonrpc, methods=["GET", "POST"]),
+            Route("/smithery", endpoint=handle_smithery_jsonrpc, methods=["POST"]),
+            Route("/", endpoint=handle_smithery_jsonrpc, methods=["POST"]),
             Mount(MESSAGE_ENDPOINT_PATH, app=sse_transport.handle_post_message),
         ],
     )
@@ -650,7 +651,7 @@ class MessageEndpointAliasMiddleware:
 
         # 如果是根路径的JSON-RPC请求，直接转发到应用（不重写）
         if self._is_root_jsonrpc_request(scope):
-            logger.info("Forwarding root JSON-RPC request to application routes")
+            logger.info("Directly handling root JSON-RPC request without rewrite")
             await self._app(scope, receive, send)
             return
 
@@ -715,11 +716,7 @@ class MessageEndpointAliasMiddleware:
             if method == "POST":
                 # Check if this is a JSON-RPC request (like from Smithery)
                 if self._is_jsonrpc_request(scope):
-                    logger.debug(
-                        "NOT rewriting JSON-RPC request '%s %s' - handled by root handler",
-                        method,
-                        scope.get("path", "/"),
-                    )
+                    logger.info("Skipping rewrite for root JSON-RPC request")
                     return False
                 # Check if it has session identifier
                 elif self._has_session_identifier(scope):

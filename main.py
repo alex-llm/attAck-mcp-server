@@ -369,16 +369,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--port",
         type=int,
-        default=None,
-        help="HTTP 模式下监听的端口 (默认: 8001 或 $PORT)",
+        default=8001,
+        help="HTTP 模式下监听的端口 (默认: 8001)",
     )
     parser.add_argument(
         "--log-level",
-        default=None,
-        help="HTTP 模式下的日志等级 (默认: info 或 $ATTACK_MCP_LOG_LEVEL)",
+        default="info",
+        help="HTTP 模式下的日志等级 (默认: info)",
     )
     return parser.parse_args(argv)
-
 
 def normalize_mode(cli_mode: Optional[str]) -> str:
     """Resolve the execution mode from CLI arguments and environment variables."""

@@ -1,8 +1,12 @@
 # 导入核心库
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
 from mitreattack.stix20 import MitreAttackData
 from fastapi import HTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Mount, Route
 import uvicorn
 import argparse
 import sys
@@ -11,6 +15,7 @@ from typing import Optional, List
 import asyncio
 import logging
 import os
+from urllib.parse import parse_qs, unquote
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +26,13 @@ logger.info("正在初始化MCP服务器...")
 PROJECT_VERSION = "2.1"
 PROJECT_NAME = "ATT&CK_Query_Service"
 PROJECT_DESCRIPTION = "提供MITRE ATT&CK技术、战术及缓解措施的查询服务"
+MESSAGE_ENDPOINT_PATH = "/messages/"
+
 mcp = FastMCP(
     name=PROJECT_NAME,
     description=PROJECT_DESCRIPTION,
-    version=PROJECT_VERSION
+    version=PROJECT_VERSION,
+    message_path=MESSAGE_ENDPOINT_PATH,
 )
 
 attack_data = None
@@ -515,7 +523,70 @@ def main(argv: Optional[List[str]] = None) -> None:
 def create_http_app():
     """Create the FastMCP HTTP application with permissive CORS headers."""
 
-    app = mcp.sse_app()
+    sse_transport = SseServerTransport(MESSAGE_ENDPOINT_PATH)
+
+    async def handle_sse(request):
+        async with sse_transport.connect_sse(
+            request.scope,
+            request.receive,
+            request._send,  # type: ignore[attr-defined]
+        ) as streams:
+            await mcp._mcp_server.run(  # type: ignore[attr-defined]
+                streams[0],
+                streams[1],
+                mcp._mcp_server.create_initialization_options(),  # type: ignore[attr-defined]
+            )
+
+    async def normalize_and_forward(scope, receive, send):
+        """Forward message endpoint aliases to the SSE transport handler."""
+
+        if scope.get("type") != "http":
+            await sse_transport.handle_post_message(scope, receive, send)
+            return
+
+        path = scope.get("path", "") or "/"
+        normalized = path
+        for _ in range(3):
+            decoded = unquote(normalized)
+            if decoded == normalized:
+                break
+            normalized = decoded
+
+        if not normalized.startswith("/"):
+            normalized = f"/{normalized}"
+        else:
+            normalized = f"/{normalized.lstrip('/')}"
+
+        if normalized != "/":
+            normalized = normalized.rstrip("/") + "/"
+
+        should_forward = normalized == MESSAGE_ENDPOINT_PATH
+
+        if not should_forward and normalized == "/":
+            query_string = scope.get("query_string", b"")
+            if query_string:
+                params = parse_qs(query_string.decode("utf-8"), keep_blank_values=True)
+                if params.get("session_id") or params.get("sessionId"):
+                    should_forward = True
+
+        if should_forward:
+            patched_scope = dict(scope)
+            patched_scope["path"] = MESSAGE_ENDPOINT_PATH
+            patched_scope["raw_path"] = MESSAGE_ENDPOINT_PATH.encode()
+            await sse_transport.handle_post_message(patched_scope, receive, send)
+            return
+
+        response = PlainTextResponse("Not Found", status_code=404)
+        await response(scope, receive, send)
+
+    app = Starlette(
+        debug=mcp.settings.debug,
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount("/", app=normalize_and_forward),
+        ],
+    )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

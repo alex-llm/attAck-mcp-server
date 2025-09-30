@@ -380,15 +380,47 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 def normalize_mode(cli_mode: Optional[str]) -> str:
-    """Resolve the execution mode from CLI arguments and environment variables."""
+    """Resolve the execution mode from CLI arguments and environment variables.
+
+    Some remote runtimes (for example Smithery) require an HTTP/SSE transport and
+    communicate this requirement through the ``MCP_TRANSPORT`` environment
+    variable.  Historically only ``"stdio"`` and ``"http"`` were supported, but
+    new values such as ``"streaming"`` or ``"streamable"`` are now emitted.  To
+    avoid hard failures we normalise a wider range of aliases to one of the two
+    execution modes supported by the server.
+    """
 
     env_mode = os.getenv("ATTACK_MCP_MODE") or os.getenv("MCP_TRANSPORT")
-    mode = (cli_mode or env_mode or "stdio").lower()
+    raw_mode = (cli_mode or env_mode or "").strip().lower()
 
-    if mode not in {"stdio", "http"}:
-        raise ValueError(f"Unsupported mode '{mode}'. Use 'stdio' or 'http'.")
+    mode_aliases = {
+        "": None,
+        "stdio": "stdio",
+        "http": "http",
+        "https": "http",
+        "sse": "http",
+        "stream": "http",
+        "streaming": "http",
+        "streamable": "http",
+        "http-streaming": "http",
+        "stdionotsupported": "http",
+    }
 
-    return mode
+    if raw_mode not in mode_aliases:
+        raise ValueError(
+            f"Unsupported mode '{raw_mode}'. Use 'stdio' or 'http'."
+        )
+
+    resolved_mode = mode_aliases[raw_mode]
+    if resolved_mode:
+        return resolved_mode
+
+    # No explicit mode was provided. Default to HTTP when a port hint is
+    # available (common on remote deployments), otherwise fall back to stdio.
+    if os.getenv("ATTACK_MCP_PORT") or os.getenv("PORT"):
+        return "http"
+
+    return "stdio"
 
 
 def resolve_host(cli_host: Optional[str]) -> str:

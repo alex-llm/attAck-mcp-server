@@ -1,8 +1,12 @@
 # 导入核心库
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
 from mitreattack.stix20 import MitreAttackData
 from fastapi import HTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+from starlette.types import Receive, Scope, Send
 import uvicorn
 import argparse
 import sys
@@ -11,6 +15,7 @@ from typing import Optional, List
 import asyncio
 import logging
 import os
+from urllib.parse import parse_qs, unquote
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +26,13 @@ logger.info("正在初始化MCP服务器...")
 PROJECT_VERSION = "2.1"
 PROJECT_NAME = "ATT&CK_Query_Service"
 PROJECT_DESCRIPTION = "提供MITRE ATT&CK技术、战术及缓解措施的查询服务"
+MESSAGE_ENDPOINT_PATH = "/messages/"
+
 mcp = FastMCP(
     name=PROJECT_NAME,
     description=PROJECT_DESCRIPTION,
-    version=PROJECT_VERSION
+    version=PROJECT_VERSION,
+    message_path=MESSAGE_ENDPOINT_PATH,
 )
 
 attack_data = None
@@ -515,7 +523,28 @@ def main(argv: Optional[List[str]] = None) -> None:
 def create_http_app():
     """Create the FastMCP HTTP application with permissive CORS headers."""
 
-    app = mcp.sse_app()
+    sse_transport = SseServerTransport(MESSAGE_ENDPOINT_PATH)
+
+    async def handle_sse(request):
+        async with sse_transport.connect_sse(
+            request.scope,
+            request.receive,
+            request._send,  # type: ignore[attr-defined]
+        ) as streams:
+            await mcp._mcp_server.run(  # type: ignore[attr-defined]
+                streams[0],
+                streams[1],
+                mcp._mcp_server.create_initialization_options(),  # type: ignore[attr-defined]
+            )
+
+    app = Starlette(
+        debug=mcp.settings.debug,
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount(MESSAGE_ENDPOINT_PATH, app=sse_transport.handle_post_message),
+        ],
+    )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -525,7 +554,109 @@ def create_http_app():
         expose_headers=["mcp-session-id", "mcp-protocol-version"],
         max_age=86400,
     )
-    return app
+
+    return MessageEndpointAliasMiddleware(app, MESSAGE_ENDPOINT_PATH)
+
+
+class MessageEndpointAliasMiddleware:
+    """ASGI middleware that rewrites HTTP scope paths for message aliases.
+
+    Some MCP clients encode the ``/messages/`` path multiple times or fall back
+    to posting messages to ``/`` with only a ``session_id`` query parameter.  The
+    FastMCP transport expects requests to target the canonical ``/messages/``
+    endpoint, so this middleware normalises the incoming path and forwards the
+    request to the expected route without requiring the client to be
+    implementation-aware.
+    """
+
+    def __init__(self, app, message_path: str):
+        self._app = app
+        self._message_path = self._ensure_trailing_slash(message_path)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope_type = scope.get("type")
+        if scope_type != "http":
+            await self._app(scope, receive, send)
+            return
+
+        if self._should_rewrite(scope):
+            patched_scope = dict(scope)
+            patched_scope["path"] = self._message_path
+            patched_scope["raw_path"] = self._message_path.encode()
+            logger.debug(
+                "Rewriting message alias '%s' to '%s'",
+                scope.get("path"),
+                self._message_path,
+            )
+            await self._app(patched_scope, receive, send)
+            return
+
+        await self._app(scope, receive, send)
+
+    def _should_rewrite(self, scope: Scope) -> bool:
+        path = scope.get("path", "")
+        if not path and scope.get("raw_path"):
+            try:
+                path = scope["raw_path"].decode("utf-8", "ignore")
+            except Exception:
+                path = ""
+
+        normalized = self._normalize_path(path)
+
+        if normalized == self._message_path:
+            return True
+
+        if normalized.rstrip("/") == self._message_path.rstrip("/"):
+            return True
+
+        if normalized == "/" and self._has_session_identifier(scope):
+            return True
+
+        return False
+
+    def _normalize_path(self, path: str) -> str:
+        candidate = path or "/"
+
+        for _ in range(5):
+            decoded = unquote(candidate)
+            if decoded == candidate:
+                break
+            candidate = decoded
+
+        candidate = candidate.replace("\\", "/")
+
+        if not candidate.startswith("/"):
+            candidate = f"/{candidate}"
+
+        while "//" in candidate:
+            candidate = candidate.replace("//", "/")
+
+        if candidate != "/" and not candidate.endswith("/"):
+            candidate = f"{candidate}/"
+
+        return candidate
+
+    def _has_session_identifier(self, scope: Scope) -> bool:
+        query_string = scope.get("query_string", b"")
+        if query_string:
+            params = parse_qs(query_string.decode("utf-8", "ignore"), keep_blank_values=True)
+            if params.get("session_id") or params.get("sessionId"):
+                return True
+
+        headers = scope.get("headers") or []
+        for key, value in headers:
+            if key.decode("utf-8", "ignore").lower() == "mcp-session-id" and value:
+                return True
+
+        return False
+
+    @staticmethod
+    def _ensure_trailing_slash(path: str) -> str:
+        if not path.startswith("/"):
+            path = f"/{path}"
+        if not path.endswith("/"):
+            path = f"{path}/"
+        return path
 
 
 if __name__ == "__main__":

@@ -162,11 +162,14 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
    pip install -r requirements.txt
    ```
 2. 确保 enterprise-attack.json 数据集在项目根目录。
-3. 启动服务：
+3. 启动服务（默认 stdio 模式，适用于本地客户端集成）：
    ```bash
    python main.py
    ```
-4. 服务默认监听 http://127.0.0.1:8001
+4. 如果需要以 HTTP/SSE 方式提供服务，请显式选择模式：
+   ```bash
+   python main.py --mode http --host 127.0.0.1 --port 8001
+   ```
 
 ### 方式二：生产环境推荐（Docker 或 Uvicorn）
 

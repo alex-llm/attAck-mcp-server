@@ -598,7 +598,7 @@ def create_http_app():
         debug=mcp.settings.debug,
         routes=[
             Route("/sse", endpoint=handle_sse),
-            Route("/smithery", endpoint=handle_smithery_jsonrpc),
+            Route("/smithery", endpoint=handle_smithery_jsonrpc, methods=["GET", "POST"]),
             Mount(MESSAGE_ENDPOINT_PATH, app=sse_transport.handle_post_message),
         ],
     )

@@ -626,7 +626,7 @@ class MessageEndpointAliasMiddleware:
 
         if normalized == "/":
             method = (scope.get("method") or "").upper()
-            if method in {"POST", "OPTIONS"}:
+            if method == "POST":
                 logger.debug(
                     "Rewriting root request '%s %s' to message endpoint '%s'",
                     method,

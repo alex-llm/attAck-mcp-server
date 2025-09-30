@@ -79,20 +79,26 @@ To use this MCP server, you need to have an MCP client configured to connect to 
   ```bash
   python main.py
   ```
-- main.py 默认以 stdio (mcp.serve) 模式启动，适用于 Smithery、Cursor 等支持本地 MCP stdio 的客户端。
+- 程序会自动选择 stdio 模式（默认或 `ATTACK_MCP_MODE=stdio`），适用于 Smithery、Cursor 等支持本地 MCP stdio 的客户端。
 - MCP 客户端配置服务类型为"local/stdio"，无需指定端口。
 - 适用场景：Smithery 自动化、CI/CD、本地 AI Agent 集成。
 
 ### 2. HTTP/SSE 方式（远程/开发/调试）
 
-- 取消 main.py 末尾的 mcp.serve() 注释，启用 uvicorn 相关代码。
-- 启动服务：
+- 使用 CLI 参数切换模式：
   ```bash
-  python main.py
-  # 或
-  uvicorn main:app --host 0.0.0.0 --port 8001
+  python main.py --mode http --host 0.0.0.0 --port 8001 --log-level info
   ```
-- MCP 客户端配置服务类型为"http"，地址如 `http://127.0.0.1:8001/sse`。
+- 或通过环境变量控制：
+  ```bash
+  export ATTACK_MCP_MODE=http
+  export ATTACK_MCP_HOST=0.0.0.0   # 可选，默认 127.0.0.1 或 $HOST
+  export ATTACK_MCP_PORT=8001      # 可选，默认 8001 或 $PORT
+  export ATTACK_MCP_LOG_LEVEL=info # 可选，默认 info
+  python main.py
+  ```
+- 运行后服务以 HTTP/SSE 方式暴露，可在客户端配置服务类型为 "http"，地址如 `http://127.0.0.1:8001/sse`。
+- 远程部署（如 Smithery Cloud）通常会提供 `PORT` 或 `MCP_TRANSPORT` 环境变量，可直接 `python main.py` 即使用 HTTP。
 
 - **工具名称**：`query_technique`、`search_technique_full`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
 - **参数示例**：

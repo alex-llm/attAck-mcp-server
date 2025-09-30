@@ -3,8 +3,10 @@ from mcp.server.fastmcp import FastMCP
 from mitreattack.stix20 import MitreAttackData
 from fastapi import HTTPException
 import uvicorn
+import argparse
+import sys
 import json
-from typing import Optional
+from typing import Optional, List
 import asyncio
 import logging
 import os
@@ -345,15 +347,52 @@ async def server_info():
 
 app = mcp.sse_app()
 
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="ATT&CK Query Service")
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="显示版本信息并退出",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["http", "stdio"],
+        default="stdio",
+        help="选择运行模式: http 或 stdio (默认: stdio)",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="HTTP 模式下监听的主机地址 (默认: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8001,
+        help="HTTP 模式下监听的端口 (默认: 8001)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="info",
+        help="HTTP 模式下的日志等级 (默认: info)",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    # 只需切换下方注释即可选择 stdio 或 http 模式
-    # --- MCP stdio 模式（Smithery/本地集成推荐）---
-    mcp.run()
-    # --- HTTP/SSE 模式（开发/调试/远程部署推荐）---
-    # import uvicorn
-    # uvicorn.run(
-    #     "main:app",
-    #     host="127.0.0.1",
-    #     port=8001,
-    #     log_level="info"
-    # )
+    args = parse_args()
+
+    if args.version:
+        print(f"{PROJECT_NAME} v{PROJECT_VERSION}")
+        sys.exit(0)
+
+    if args.mode == "stdio":
+        mcp.run()
+    else:
+        uvicorn.run(
+            app=app,
+            host=args.host,
+            port=args.port,
+            log_level=args.log_level,
+        )

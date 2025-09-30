@@ -387,7 +387,7 @@ def normalize_mode(cli_mode: Optional[str]) -> str:
     avoid hard failures we normalise a wider range of aliases to one of the two
     execution modes supported by the server.
     """
-    
+
     env_mode = (
         os.getenv("ATTACK_MCP_MODE")
         or os.getenv("TRANSPORT")
@@ -515,7 +515,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 def create_http_app():
     """Create the FastMCP HTTP application with permissive CORS headers."""
 
-    app = mcp.streamable_http_app()
+    app = mcp.sse_app()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

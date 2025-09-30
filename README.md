@@ -100,6 +100,7 @@ To use this MCP server, you need to have an MCP client configured to connect to 
 - 运行后服务以 streamable HTTP 方式暴露，可在客户端配置服务类型为 "http"，地址如 `http://127.0.0.1:8081/mcp`。
 - 远程部署（如 Smithery Cloud）通常会提供 `PORT` 或 `MCP_TRANSPORT` 环境变量，可直接运行 `python main.py` 即使用 HTTP。对于值为 `streaming`、`streamable`、`streamable-http`、`streamable HTTP transport` 或 `stdioNotSupported` 等新枚举的运行环境，程序会自动回退到 HTTP 模式，无需额外配置。
 - Smithery 等容器平台会通过 `PORT`（默认为 8081）告知监听端口；程序会自动读取该值并监听在 `0.0.0.0:$PORT`。
+
 - **工具名称**：`query_technique`、`search_technique_full`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
 - **参数示例**：
   - 按ID查询技术：

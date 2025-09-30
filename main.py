@@ -595,6 +595,8 @@ def create_http_app():
             }
             return JSONResponse(response)
 
+    logger.info("Creating HTTP app with routes: /sse, /smithery (POST), / (POST), %s", MESSAGE_ENDPOINT_PATH)
+
     app = Starlette(
         debug=mcp.settings.debug,
         routes=[
@@ -648,6 +650,7 @@ class MessageEndpointAliasMiddleware:
             path or "/",
             query_string.decode("utf-8", "ignore") if isinstance(query_string, (bytes, bytearray)) else query_string,
         )
+        logger.info("Request details - Path: %s, Method: %s, Headers: %s", path, method, dict(scope.get("headers", [])))
 
         # 如果是根路径的JSON-RPC请求，直接转发到应用（不重写）
         if self._is_root_jsonrpc_request(scope):
@@ -768,7 +771,7 @@ class MessageEndpointAliasMiddleware:
         method = (scope.get("method") or "").upper()
         is_jsonrpc = self._is_jsonrpc_request(scope)
         
-        logger.info(f"Checking root JSON-RPC: path='{path}' method='{method}' is_jsonrpc={is_jsonrpc}")
+        logger.info("JSON-RPC detection - Path: %s, Method: %s, Content-Type check: %s", path, method, is_jsonrpc)
         
         return (
             path == "/" and 
@@ -794,6 +797,7 @@ class MessageEndpointAliasMiddleware:
         
         try:
             data = json.loads(body.decode("utf-8"))
+            logger.info("Route matched for JSON-RPC - Method: %s, Body length: %d", data.get('method'), len(body))
             logger.info(f"Handling root JSON-RPC request: {data.get('method', 'unknown')}")
             
             if data.get("method") == "initialize":

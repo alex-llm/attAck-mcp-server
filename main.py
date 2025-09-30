@@ -562,7 +562,8 @@ def create_http_app():
                             "experimental": {},
                             "prompts": {"listChanged": False},
                             "resources": {"subscribe": False, "listChanged": False},
-                            "tools": {"listChanged": False}
+                            # 标记工具列表已更新，提示客户端主动获取可用工具。
+                            "tools": {"listChanged": True}
                         },
                         "serverInfo": {
                             "name": PROJECT_NAME,

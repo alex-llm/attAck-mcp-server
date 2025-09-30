@@ -603,6 +603,7 @@ def create_http_app():
             Route("/sse", endpoint=handle_sse),
             Route("/smithery", endpoint=handle_smithery_jsonrpc, methods=["POST"]),
             Route("/", endpoint=handle_smithery_jsonrpc, methods=["POST"]),
+            Route("/mcp", endpoint=handle_smithery_jsonrpc, methods=["POST"]),
             Mount(MESSAGE_ENDPOINT_PATH, app=sse_transport.handle_post_message),
         ],
     )
@@ -730,6 +731,10 @@ class MessageEndpointAliasMiddleware:
                         self._message_path,
                     )
                     return True
+
+        if normalized == "/mcp":
+            logger.info("Handling /mcp request - checking for rewrite")
+            return False  # Skip rewrite for /mcp
 
         return False
 

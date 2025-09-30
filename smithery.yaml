@@ -1,15 +1,10 @@
-# Smithery.ai configuration
+# Smithery.ai configuration for container-based deployments
+runtime: container
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: .
 startCommand:
-  type: stdio
-  configSchema: {}
-  commandFunction: |-
-    (config) => ({
-      command: "python",
-      args: [
-        "main.py"
-      ],
-      env: {}
-    })
+  type: http
 tools:
   - query_technique
   - search_technique_full

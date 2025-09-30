@@ -6,6 +6,7 @@ build:
 startCommand:
   type: http
   endpoint: /smithery
+  method: POST
 tools:
   - query_technique
   - search_technique_full

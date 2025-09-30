@@ -599,6 +599,7 @@ def create_http_app():
         routes=[
             Route("/sse", endpoint=handle_sse),
             Route("/smithery", endpoint=handle_smithery_jsonrpc, methods=["GET", "POST"]),
+            Route("/", endpoint=handle_smithery_jsonrpc, methods=["GET", "POST"]),
             Mount(MESSAGE_ENDPOINT_PATH, app=sse_transport.handle_post_message),
         ],
     )
@@ -640,12 +641,18 @@ class MessageEndpointAliasMiddleware:
         method = scope.get("method") or ""
         path = scope.get("path", "")
         query_string = scope.get("query_string", b"")
-        logger.debug(
+        logger.info(
             "HTTP request received: method=%s path='%s' query='%s'",
             method,
             path or "/",
             query_string.decode("utf-8", "ignore") if isinstance(query_string, (bytes, bytearray)) else query_string,
         )
+
+        # 如果是根路径的JSON-RPC请求，直接转发到应用（不重写）
+        if self._is_root_jsonrpc_request(scope):
+            logger.info("Forwarding root JSON-RPC request to application routes")
+            await self._app(scope, receive, send)
+            return
 
         if self._should_rewrite(scope):
             patched_scope = dict(scope)
@@ -709,12 +716,11 @@ class MessageEndpointAliasMiddleware:
                 # Check if this is a JSON-RPC request (like from Smithery)
                 if self._is_jsonrpc_request(scope):
                     logger.debug(
-                        "Rewriting JSON-RPC request '%s %s' to message endpoint '%s'",
+                        "NOT rewriting JSON-RPC request '%s %s' - handled by root handler",
                         method,
                         scope.get("path", "/"),
-                        self._message_path,
                     )
-                    return True
+                    return False
                 # Check if it has session identifier
                 elif self._has_session_identifier(scope):
                     logger.debug(
@@ -758,6 +764,107 @@ class MessageEndpointAliasMiddleware:
                 if "application/json" in content_type:
                     return True
         return False
+
+    def _is_root_jsonrpc_request(self, scope: Scope) -> bool:
+        """Check if this is a JSON-RPC request to the root path."""
+        path = scope.get("path", "")
+        method = (scope.get("method") or "").upper()
+        is_jsonrpc = self._is_jsonrpc_request(scope)
+        
+        logger.info(f"Checking root JSON-RPC: path='{path}' method='{method}' is_jsonrpc={is_jsonrpc}")
+        
+        return (
+            path == "/" and 
+            method == "POST" and 
+            is_jsonrpc
+        )
+
+    async def _handle_root_jsonrpc(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Handle JSON-RPC requests to the root path directly."""
+        from starlette.responses import JSONResponse
+        import json
+        
+        # 读取请求体
+        body = b""
+        while True:
+            message = await receive()
+            if message["type"] == "http.request":
+                body += message.get("body", b"")
+                if not message.get("more_body", False):
+                    break
+            elif message["type"] == "http.disconnect":
+                return
+        
+        try:
+            data = json.loads(body.decode("utf-8"))
+            logger.info(f"Handling root JSON-RPC request: {data.get('method', 'unknown')}")
+            
+            if data.get("method") == "initialize":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": data.get("id"),
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "experimental": {},
+                            "prompts": {"listChanged": False},
+                            "resources": {"subscribe": False, "listChanged": False},
+                            "tools": {"listChanged": False}
+                        },
+                        "serverInfo": {
+                            "name": PROJECT_NAME,
+                            "version": PROJECT_VERSION
+                        }
+                    }
+                }
+            else:
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": data.get("id"),
+                    "error": {
+                        "code": -32601,
+                        "message": "Method not found"
+                    }
+                }
+            
+            # 发送响应
+            response_body = json.dumps(response).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(response_body)).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": response_body,
+            })
+            
+        except Exception as e:
+            logger.error(f"Error handling root JSON-RPC request: {e}")
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32603,
+                    "message": "Internal error"
+                }
+            }
+            error_body = json.dumps(error_response).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 500,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(error_body)).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": error_body,
+            })
 
     def _has_session_identifier(self, scope: Scope) -> bool:
         query_string = scope.get("query_string", b"")

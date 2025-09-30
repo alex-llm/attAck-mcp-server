@@ -83,22 +83,23 @@ To use this MCP server, you need to have an MCP client configured to connect to 
 - MCP 客户端配置服务类型为"local/stdio"，无需指定端口。
 - 适用场景：Smithery 自动化、CI/CD、本地 AI Agent 集成。
 
-### 2. HTTP/SSE 方式（远程/开发/调试）
+### 2. HTTP/Streamable 方式（远程/开发/调试）
 
 - 使用 CLI 参数切换模式：
   ```bash
-  python main.py --mode http --host 0.0.0.0 --port 8001 --log-level info
+  python main.py --mode http --host 0.0.0.0 --port 8081 --log-level info
   ```
 - 或通过环境变量控制：
   ```bash
   export ATTACK_MCP_MODE=http
-  export ATTACK_MCP_HOST=0.0.0.0   # 可选，默认 127.0.0.1 或 $HOST
-  export ATTACK_MCP_PORT=8001      # 可选，默认 8001 或 $PORT
+  export ATTACK_MCP_HOST=0.0.0.0   # 可选，默认 0.0.0.0 或 $HOST
+  export ATTACK_MCP_PORT=8081      # 可选，默认 8081 或 $PORT
   export ATTACK_MCP_LOG_LEVEL=info # 可选，默认 info
   python main.py
   ```
-- 运行后服务以 HTTP/SSE 方式暴露，可在客户端配置服务类型为 "http"，地址如 `http://127.0.0.1:8001/sse`。
-- 远程部署（如 Smithery Cloud）通常会提供 `PORT` 或 `MCP_TRANSPORT` 环境变量，可直接 `python main.py` 即使用 HTTP。
+- 运行后服务以 streamable HTTP 方式暴露，可在客户端配置服务类型为 "http"，地址如 `http://127.0.0.1:8081/mcp`。
+- 远程部署（如 Smithery Cloud）通常会提供 `PORT` 或 `MCP_TRANSPORT` 环境变量，可直接运行 `python main.py` 即使用 HTTP。对于值为 `streaming`、`streamable`、`streamable-http`、`streamable HTTP transport` 或 `stdioNotSupported` 等新枚举的运行环境，程序会自动回退到 HTTP 模式，无需额外配置。
+- Smithery 等容器平台会通过 `PORT`（默认为 8081）告知监听端口；程序会自动读取该值并监听在 `0.0.0.0:$PORT`。
 
 - **工具名称**：`query_technique`、`search_technique_full`、`query_mitigations`、`query_detections`、`list_tactics`、`server_info`
 - **参数示例**：
@@ -166,12 +167,12 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
    ```bash
    python main.py
    ```
-4. 如果需要以 HTTP/SSE 方式提供服务，请显式选择模式：
+4. 如果需要以 HTTP 方式提供服务，请显式选择模式：
    ```bash
-   python main.py --mode http --host 127.0.0.1 --port 8001
+   python main.py --mode http --host 127.0.0.1 --port 8081
    ```
 
-### 方式二：生产环境推荐（Docker 或 Uvicorn）
+### 方式二：生产环境推荐（Docker 部署）
 
 #### Docker
 1. 构建镜像：
@@ -180,12 +181,7 @@ ATT&CK is a curated knowledge base and model for cyber adversary behavior, refle
    ```
 2. 运行容器：
    ```bash
-   docker run -p 8001:8001 attack-mcp-server
-   ```
-
-#### Uvicorn 命令行
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port 8001
+   docker run -p 8081:8081 attack-mcp-server
    ```
 
 ---

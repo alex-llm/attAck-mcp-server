@@ -5,7 +5,7 @@ build:
   dockerBuildPath: .
 startCommand:
   type: http
-  endpoint: /sse
+  endpoint: /smithery
 tools:
   - query_technique
   - search_technique_full

@@ -1,5 +1,7 @@
 # attAck-mcp-server
 
+[![smithery badge](https://smithery.ai/badge/@alex-llm/attack-mcp-server)](https://smithery.ai/server/@alex-llm/attack-mcp-server)
+
 This project is an MCP (Model Context Protocol) server for querying ATT&CK (Adversarial Tactics, Techniques, and Common Knowledge) techniques and tactics. It provides a way to access and retrieve information about various attack techniques and tactics used by adversaries.
 
 ## Tools
@@ -145,6 +147,16 @@ To use this MCP server, you need to have an MCP client configured to connect to 
 > 具体的客户端配置方式请参考您的 MCP 客户端文档，将上述服务地址和工具名称填入对应位置即可。
 
 ## Installation
+
+### Installing via Smithery
+
+To install attAck MCP Server automatically via [Smithery](https://smithery.ai/server/@alex-llm/attack-mcp-server):
+
+```bash
+npx -y @smithery/cli install @alex-llm/attack-mcp-server
+```
+
+### Installing Manually
 
 1.  Clone this repository.
 2.  Install the required dependencies using `pip install -r requirements.txt`.

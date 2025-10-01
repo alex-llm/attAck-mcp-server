@@ -1,0 +1,13 @@
+INFO:__main__:正在初始化MCP服务器...
+INFO:__main__:启动模式: http
+INFO:__main__:Creating HTTP app with routes: /sse, /smithery (POST), / (POST), /messages/
+INFO:     Started server process [12844]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8081 (Press CTRL+C to quit)
+INFO:__main__:HTTP request received: method=POST path='/smithery' query=''
+INFO:__main__:Request details - Path: /smithery, Method: POST, Headers: {b'host': b'localhost:8081', b'user-agent': b'curl/8.7.1', b'accept': b'*/*', b'content-type': b'application/json', b'content-length': b'51'}
+INFO:__main__:JSON-RPC detection - Path: /smithery, Method: POST, Content-Type check: True
+INFO:__main__:Handling Smithery JSON-RPC request: tools/list
+INFO:__main__:Processing JSON-RPC method: tools/list
+INFO:     127.0.0.1:54264 - "POST /smithery HTTP/1.1" 200 OK

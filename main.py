@@ -75,7 +75,7 @@ async def ensure_attack_data_loaded():
 # 核心查询工具
 @mcp.tool(
     name="query_technique",
-    description="通过技术ID精确查询或技术名称模糊搜索ATT&CK攻击技术的详细信息。ID查询返回单个技术的完整数据，名称搜索返回匹配技术列表的摘要。"
+    description="Query ATT&CK technique details by exact technique ID or fuzzy technique name search. ID query returns full data for a single technique including ID, name, description, platforms, kill chain phases, references, and subtechniques. Name search returns a summary list of matching techniques with ID, name, and short description."
 )
 async def query_attack_technique(
     technique_id: Optional[str] = None, 
@@ -176,11 +176,7 @@ def format_technique_data(tech, include_mitigations: bool = False):
 
 @mcp.tool(
     name="search_technique_full",
-    description=(
-        "通过技术ID精确查询或技术名称模糊搜索 ATT&CK 攻击技术的所有详尽信息。"
-        "返回的数据包含 ID、名称、描述、适用平台、Kill Chain 阶段、参考资料、子技术及缓解措施。"
-        "ID 查询返回单个技术的完整数据；名称搜索返回所有匹配技术的完整数据列表并包含结果数量。"
-    ),
+    description="Query comprehensive details of ATT&CK techniques by exact ID or fuzzy name search. Returns full information for matching techniques, including ID, name, description, platforms, kill chain phases, references, subtechniques, and mitigations. ID query returns single technique; name search returns list with count."
 )
 async def search_technique_full(
     technique_id: Optional[str] = None,
@@ -235,7 +231,7 @@ async def search_technique_full(
 
 @mcp.tool(
     name="query_mitigations",
-    description="根据ATT&CK技术ID查询相关的缓解措施列表。为每个缓解措施提供ID、名称和描述。"
+    description="Query the list of mitigations related to a specific ATT&CK technique ID. Returns ID, name, and description for each applicable mitigation."
 )
 async def query_mitigations(technique_id: str):
     """
@@ -262,7 +258,7 @@ async def query_mitigations(technique_id: str):
 
 @mcp.tool(
     name="query_detections",
-    description="根据ATT&CK技术ID查询相关的检测方法或数据组件。为每个检测方法提供其来源(数据组件名称)和描述。"
+    description="Query detection methods or data components associated with an ATT&CK technique ID. Returns the source (data component name) and description for each relevant detection."
 )
 async def query_detections(technique_id: str):
     """
@@ -289,7 +285,7 @@ async def query_detections(technique_id: str):
 # 附加功能：战术列表查询
 @mcp.tool(
     name="list_tactics",
-    description="获取并列出MITRE ATT&CK框架中定义的所有战术。为每个战术提供ID、名称和描述。"
+    description="Retrieve and list all tactics defined in the MITRE ATT&CK framework. Provides ID, name, and description for each tactic."
 )
 async def get_all_tactics():
     """
@@ -314,7 +310,7 @@ async def get_all_tactics():
 
 @mcp.tool(
     name="server_info",
-    description="返回项目工程、MCP库与ATT&CK数据集版本及维护信息，包括Git状态。",
+    description="Returns information about the project, MCP library version, ATT&CK dataset versions, and Git status."
 )
 async def server_info():
     """获取服务和数据集的版本、维护者及Git信息。"""
@@ -580,115 +576,59 @@ def create_http_app():
                     "result": {"tools": [
                         {
                             "name": "query_technique",
-                            "description": "通过技术ID精确查询或技术名称模糊搜索ATT&CK攻击技术的详细信息。ID查询返回单个技术的完整数据，名称搜索返回匹配技术列表的摘要。",
+                            "description": "Query ATT&CK technique details by exact technique ID or fuzzy technique name search. ID query returns full data for a single technique including ID, name, description, platforms, kill chain phases, references, and subtechniques. Name search returns a summary list of matching techniques with ID, name, and short description.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
-                                    "technique_id": {"type": "string", "description": "要查询的ATT&CK技术ID。如果提供此参数，则优先使用ID进行精确查询。"},
-                                    "tech_name": {"type": "string", "description": "用于模糊搜索的ATT&CK技术名称中的关键词。如果未提供 `technique_id`，则使用此参数进行搜索。"}
+                                    "technique_id": {"type": "string", "description": "The ATT&CK technique ID to query (e.g., 'T1059.001'). If provided, performs exact ID query first."},
+                                    "tech_name": {"type": "string", "description": "Keyword for fuzzy search in ATT&CK technique names (e.g., 'phishing'). Used if no technique_id is provided."}
                                 },
                                 "required": []
                             }
                         },
                         {
                             "name": "search_technique_full",
-                            "description": (
-                                "通过技术ID精确查询或技术名称模糊搜索 ATT&CK 攻击技术的所有详尽信息。"
-                                "返回的数据包含 ID、名称、描述、适用平台、Kill Chain 阶段、参考资料、子技术及缓解措施。"
-                                "ID 查询返回单个技术的完整数据；名称搜索返回所有匹配技术的完整数据列表并包含结果数量。"
-                            ),
+                            "description": "Query comprehensive details of ATT&CK techniques by exact ID or fuzzy name search. Returns full information for matching techniques, including ID, name, description, platforms, kill chain phases, references, subtechniques, and mitigations. ID query returns single technique; name search returns list with count.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
-                                    "technique_id": {"type": "string", "description": "要查询的 ATT&CK 技术 ID。若提供，将优先进行 ID 查询。"},
-                                    "tech_name": {"type": "string", "description": "用于模糊搜索的技术名称关键词。"}
+                                    "technique_id": {"type": "string", "description": "The ATT&CK technique ID for exact query (e.g., 'T1059.001'). Prioritized if provided."},
+                                    "tech_name": {"type": "string", "description": "Keyword for fuzzy search in technique names."}
                                 },
                                 "required": []
                             }
                         },
                         {
                             "name": "query_mitigations",
-                            "description": "根据ATT&CK技术ID查询相关的缓解措施列表。为每个缓解措施提供ID、名称和描述。",
+                            "description": "Query the list of mitigations related to a specific ATT&CK technique ID. Returns ID, name, and description for each applicable mitigation.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
-                                    "technique_id": {"type": "string", "description": "要查询缓解措施的ATT&CK技术ID (例如 \"T1059.001\")。ID必须精确匹配。"}
+                                    "technique_id": {"type": "string", "description": "The ATT&CK technique ID to query mitigations for (e.g., 'T1059.001'). Must be an exact match."}
                                 },
                                 "required": ["technique_id"]
                             }
                         },
                         {
                             "name": "query_detections",
-                            "description": "根据ATT&CK技术ID查询相关的检测方法或数据组件。为每个检测方法提供其来源(数据组件名称)和描述。",
+                            "description": "Query detection methods or data components associated with an ATT&CK technique ID. Returns the source (data component name) and description for each relevant detection.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
-                                    "technique_id": {"type": "string", "description": "要查询检测方法的ATT&CK技术ID (例如 \"T1059.001\")。ID必须精确匹配。"}
+                                    "technique_id": {"type": "string", "description": "The ATT&CK technique ID to query detections for (e.g., 'T1059.001'). Must be an exact match."}
                                 },
                                 "required": ["technique_id"]
                             }
                         },
                         {
                             "name": "list_tactics",
-                            "description": "获取并列出MITRE ATT&CK框架中定义的所有战术。为每个战术提供ID、名称和描述。",
-                            "inputSchema": {"type": "object", "properties": {}, "required": []},
-                            "outputSchema": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {"type": "string"},
-                                        "name": {"type": "string"},
-                                        "description": {"type": "string"}
-                                    },
-                                    "required": ["id", "name", "description"]
-                                }
-                            }
+                            "description": "Retrieve and list all tactics defined in the MITRE ATT&CK framework. Provides ID, name, and description for each tactic.",
+                            "inputSchema": {"type": "object", "properties": {}, "required": []}
                         },
                         {
                             "name": "server_info",
-                            "description": "返回项目工程、MCP库与ATT&CK数据集版本及维护信息，包括Git状态。",
-                            "inputSchema": {"type": "object", "properties": {}, "required": []},
-                            "outputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "intro": {"type": "string"},
-                                    "project": {
-                                        "type": "object",
-                                        "properties": {
-                                            "name": {"type": "string"},
-                                            "version": {"type": "string"},
-                                            "description": {"type": "string"},
-                                            "maintainer": {"type": "string"}
-                                        },
-                                        "required": ["name", "version", "description", "maintainer"]
-                                    },
-                                    "mcp": {
-                                        "type": "object",
-                                        "properties": {
-                                            "library_version": {"type": "string"}
-                                        },
-                                        "required": ["library_version"]
-                                    },
-                                    "attack_dataset": {
-                                        "type": "object",
-                                        "properties": {
-                                            "spec_version": {"type": "string"},
-                                            "attack_spec_version": {"type": "string"}
-                                        },
-                                        "required": ["spec_version", "attack_spec_version"]
-                                    },
-                                    "git": {
-                                        "type": "object",
-                                        "properties": {
-                                            "commit_id": {"type": "string"},
-                                            "error": {"type": "string"}
-                                        },
-                                        "required": ["commit_id"]
-                                    }
-                                },
-                                "required": ["intro", "project", "mcp", "attack_dataset", "git"]
-                            }
+                            "description": "Returns information about the project, MCP library version, ATT&CK dataset versions, and Git status.",
+                            "inputSchema": {"type": "object", "properties": {}, "required": []}
                         }
                     ]}
                 }
